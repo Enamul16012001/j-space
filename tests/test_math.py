@@ -63,9 +63,9 @@ for l in (0, 2, L - 1):
     J_ref = torch.zeros(D, D)
     for i in range(D):
         out = model(ids, output_hidden_states=True, use_cache=False)
-        s = out.hidden_states[tgt].sum(dim=1)[0, i]
+        s = out.hidden_states[tgt][:, :-1].sum(dim=1)[0, i]
         g, = torch.autograd.grad(s, out.hidden_states[l])
-        J_ref[i] = g[0].mean(dim=0)
+        J_ref[i] = g[0, :-1].mean(dim=0)
     err = (data["J"][l] - J_ref).abs().max().item()
     check(f"J[{l}] matches naive reference (max abs err {err:.2e})", err < 1e-4)
 
@@ -90,9 +90,9 @@ for i in range(D):
     hh = model.model.norm.register_forward_pre_hook(lambda m, a: grab2.__setitem__("z", a[0]))
     out = model(ids, output_hidden_states=True, use_cache=False)
     hh.remove()
-    s = grab2["z"].sum(dim=1)[0, i]
+    s = grab2["z"][:, :-1].sum(dim=1)[0, i]
     g, = torch.autograd.grad(s, out.hidden_states[2])
-    J_ref[i] = g[0].mean(dim=0)
+    J_ref[i] = g[0, :-1].mean(dim=0)
 err = (dfin["J"][2] - J_ref).abs().max().item()
 check(f"final-target J[2] matches reference (max abs err {err:.2e})", err < 1e-4)
 check("penultimate and final targets differ",

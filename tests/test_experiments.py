@@ -70,7 +70,7 @@ with contextlib.redirect_stderr(io.StringIO()):
     # corpus), so its resume fingerprint matches and it hits the
     # "already covers" path instead of refusing.
     data = compute_jlens(MODEL, TOK, FALLBACK_TEXTS[:4], rows_per_backward=8,
-                         skip_first=0, seq_len=128)
+                         seq_len=128)   # config defaults, same as script 00
 torch.save(data, config.JLENS_PATH)
 
 # Patch what the experiment scripts import.

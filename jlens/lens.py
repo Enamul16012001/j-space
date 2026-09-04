@@ -88,7 +88,7 @@ def compute_jlens(model, tok, texts, layers=None, target=config.TARGET,
     # or an interrupted run would resume against the wrong texts.
     texts = [t for t in texts
              if tok(t, return_tensors="pt", truncation=True,
-                    max_length=seq_len).input_ids.shape[1] >= 32]
+                    max_length=seq_len).input_ids.shape[1] >= max(32, skip_first + 2)]
     fp = corpus_fingerprint(texts)
 
     raw_final = {}
@@ -106,7 +106,9 @@ def compute_jlens(model, tok, texts, layers=None, target=config.TARGET,
         ck = torch.load(save_path, map_location="cpu", weights_only=True)
         compatible = (ck["model"] == config.MODEL_NAME and ck["target"] == target
                       and list(ck["layers"]) == layers
-                      and ck.get("corpus") == fp)
+                      and ck.get("corpus") == fp
+                      and ck.get("skip_first") == skip_first
+                      and ck.get("seq_len") == seq_len)
         if compatible and ck["n_prompts"] >= len(texts):
             print(f"[resume] {save_path} already covers {ck['n_prompts']} "
                   f"prompts; delete it to recompute")
@@ -126,6 +128,7 @@ def compute_jlens(model, tok, texts, layers=None, target=config.TARGET,
     def pack(n):
         return {"model": config.MODEL_NAME, "target": target, "target_layer": tgt,
                 "layers": layers, "n_prompts": n, "corpus": fp,
+                "skip_first": skip_first, "seq_len": seq_len,
                 "J": {l: J[l] / n for l in layers}}
 
     try:
@@ -138,15 +141,19 @@ def compute_jlens(model, tok, texts, layers=None, target=config.TARGET,
                 out = model(batch, output_hidden_states=True, use_cache=False)
                 hs = out.hidden_states      # hs[0]=embeddings, hs[i]=block-i output
                 z = hs[tgt] if tgt < L else raw_final["z"]
-                # grad_z = e_i ⊗ 1_T : one-hot in dim i at EVERY target position t'
-                s = z.sum(dim=1)            # [B, d] = Σ_t' z_t'
+                # One-hot cotangent in dim i at every VALID target position:
+                # positions [skip_first, T-1), matching the official reference
+                # (anthropics/jacobian-lens): the first positions are attention
+                # sinks with atypical statistics, and the final position has no
+                # next-token target.  The source mean uses the same window.
+                s = z[:, skip_first:-1].sum(dim=1)          # [B, d]
                 sources = [hs[l] for l in layers]
                 for start in range(0, d, B):
                     rows = torch.arange(start, min(start + B, d))
                     loss = s[torch.arange(len(rows)), rows.to(s.device)].sum()
                     grads = torch.autograd.grad(loss, sources, retain_graph=True)
                     for l, g in zip(layers, grads):          # g: [B, T, d]
-                        gm = g[:len(rows), skip_first:].float().mean(dim=1)  # mean over t
+                        gm = g[:len(rows), skip_first:-1].float().mean(dim=1)  # mean over t
                         J[l][rows] += gm.cpu()
             del out, hs, z, s, sources
             n_used += 1

@@ -7,6 +7,13 @@ for the open [Qwen3](https://huggingface.co/Qwen/Qwen3-4B) model family.
 New to the topic? [HOW_IT_WORKS.md](HOW_IT_WORKS.md) explains every idea and
 every number from scratch.
 
+The authors' own
+[reference implementation](https://github.com/anthropics/jacobian-lens)
+covers lens **fitting, reading and visualization**; this repo additionally
+implements the **J-space** sparse decomposition (§2.3), the full
+**intervention suite** (§2.5, §3.3) and runnable versions of the paper's
+experiments (Figs. 4–32).
+
 The paper's core objects, all implemented here:
 
 - **J-lens** (§2.1, §A.7) — for each layer ℓ, the corpus-averaged Jacobian
@@ -164,10 +171,15 @@ an old `jlens/corpus.py`; the dataset id must be `Salesforce/wikitext` for
 
 ## Faithfulness notes & knobs
 
-- The paper's default lens recipe is used exactly: penultimate-layer target
-  ("omit the last block"), mean over source positions, one-hot backward seeds
-  at **every** target position, no stop-grads, no position exclusions
-  (`SKIP_FIRST = 0`), model's own final RMSNorm + unembedding for readout.
+- The lens recipe follows the authors' reference implementation
+  ([anthropics/jacobian-lens](https://github.com/anthropics/jacobian-lens)):
+  one-hot backward seeds at every valid target position, sum over targets and
+  mean over sources restricted to positions `[SKIP_FIRST, T-1)` (the first 16
+  positions are attention sinks; the last has no next-token target), no
+  stop-grads, and the model's own final RMSNorm + unembedding for readout.
+  One deliberate difference: we default to the **penultimate**-layer target
+  (the paper's stated default, §A.7) where the reference defaults to the final
+  layer; both are supported via `TARGET` in `.env`.
 - **Σ vs E over t′.** §2.1 writes the aggregation over target positions as an
   expectation; the §A.7 pseudocode seeds a one-hot gradient at every target
   position and averages only over source positions — a *sum* over t′. We follow

@@ -53,7 +53,7 @@ CORPUS_SEED = _int("CORPUS_SEED", 0)        # shuffle seed for the WikiText samp
 ROWS_PER_BACKWARD = _int("ROWS_PER_BACKWARD", 16)   # memory dial for step 00
 SAVE_EVERY = _int("SAVE_EVERY", 25)         # checkpoint interval, in prompts
 RESUME = _flag("RESUME", True)              # continue from a compatible checkpoint
-SKIP_FIRST = _int("SKIP_FIRST", 0)          # 0 = the paper's default
+SKIP_FIRST = _int("SKIP_FIRST", 16)         # official-reference default
 TARGET = _str("TARGET", "penultimate")      # or "final" (the §A.7 variant)
 
 # Step 00 runs its backward passes in this dtype.  The Jacobian is an average of
