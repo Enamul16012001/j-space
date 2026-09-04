@@ -138,7 +138,9 @@ def compute_jlens(model, tok, texts, layers=None, target=config.TARGET,
             B = rows_per_backward
             batch = ids.repeat(B, 1).to(model.device)
             with torch.enable_grad():
-                out = model(batch, output_hidden_states=True, use_cache=False)
+                # run the bare decoder: the LM head's [B, T, vocab] logits are
+                # never needed here (the official reference does the same)
+                out = model.model(batch, output_hidden_states=True, use_cache=False)
                 hs = out.hidden_states      # hs[0]=embeddings, hs[i]=block-i output
                 z = hs[tgt] if tgt < L else raw_final["z"]
                 # One-hot cotangent in dim i at every VALID target position:
@@ -151,7 +153,8 @@ def compute_jlens(model, tok, texts, layers=None, target=config.TARGET,
                 for start in range(0, d, B):
                     rows = torch.arange(start, min(start + B, d))
                     loss = s[torch.arange(len(rows)), rows.to(s.device)].sum()
-                    grads = torch.autograd.grad(loss, sources, retain_graph=True)
+                    grads = torch.autograd.grad(loss, sources,
+                                                retain_graph=start + B < d)
                     for l, g in zip(layers, grads):          # g: [B, T, d]
                         gm = g[:len(rows), skip_first:-1].float().mean(dim=1)  # mean over t
                         J[l][rows] += gm.cpu()

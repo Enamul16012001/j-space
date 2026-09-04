@@ -28,3 +28,6 @@ COMMANDS.txt
 # ---- OS / editor noise ------------------------------------------------------
 .DS_Store
 Thumbs.db
+
+# the cloned official reference implementation (its own git repo)
+jacobian-lens/
