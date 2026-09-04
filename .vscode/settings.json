@@ -1,0 +1,13 @@
+{
+  // config.py reads .env itself, so the Python extension must not also inject
+  // it into terminals: injected values would become real environment
+  // variables, which take precedence over .env and would go stale the moment
+  // you edit the file.
+  "python.envFile": "",
+
+  // Use the project venv, so `python` in a VS Code terminal is the right one.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+
+  "python.analysis.extraPaths": ["${workspaceFolder}"],
+  "files.exclude": { "**/__pycache__": true }
+}

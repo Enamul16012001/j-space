@@ -1,0 +1,5 @@
+torch>=2.3
+transformers>=4.56        # Qwen3 support; 4.56 renamed torch_dtype= to dtype=
+datasets>=2.19            # WikiText corpus for J-lens averaging (optional; built-in fallback texts exist)
+matplotlib                # optional: experiments 09-11 write .png plots
+tqdm

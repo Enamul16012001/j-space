@@ -1,0 +1,30 @@
+# ---- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---- local configuration ---------------------------------------------------
+# Copy .env.example to .env; keep .env local (it may hold an HF_TOKEN).
+.env
+
+# ---- generated artifacts (large / machine-specific) ------------------------
+# computed lenses (100 MB - 7 GB each) and their temp files
+jlens_*.pt
+*.pt.tmp
+# cached corpus samples
+.corpus-*.json
+# run logs and experiment plots
+logs/
+*.log
+*.png
+
+# ---- not redistributable / personal ----------------------------------------
+# the paper PDF (see the link in README) and a personal machine runbook
+J-Space.pdf
+COMMANDS.txt
+
+# ---- OS / editor noise ------------------------------------------------------
+.DS_Store
+Thumbs.db
