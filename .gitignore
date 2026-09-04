@@ -24,10 +24,9 @@ logs/
 # the paper PDF (see the link in README) and a personal machine runbook
 J-Space.pdf
 COMMANDS.txt
+# local clone of the official reference implementation (its own git repo)
+jacobian-lens/
 
 # ---- OS / editor noise ------------------------------------------------------
 .DS_Store
 Thumbs.db
-
-# the cloned official reference implementation (its own git repo)
-jacobian-lens/
