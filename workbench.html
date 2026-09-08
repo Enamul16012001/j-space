@@ -6,123 +6,168 @@
 <title>J-lens workbench</title>
 <style>
   :root{
-    --bg:#f7f7f5; --panel:#ffffff; --ink:#1a1a1a; --muted:#767a72;
-    --line:#e3e3de; --accent:#0b6e64; --accent-soft:#0b6e6422;
-    --warn:#a33; --sel:#0b6e64; --out:#5b4a8a;
+    --bg:#faf9f6; --panel:#ffffff; --ink:#23241f; --muted:#8a8d83;
+    --line:#e7e6e0; --hairline:#f0efe9; --accent:#0e7a6d; --accent-ink:#fff;
+    --accent-soft:#0e7a6d14; --warn:#b23c3c; --sel:#0e7a6d; --out:#6b57a8;
+    --gold:#e7b400; --shadow:0 1px 2px #0000000a, 0 4px 14px #00000008;
+    --r:10px;
   }
   @media (prefers-color-scheme: dark){
-    :root{ --bg:#161715; --panel:#1e201d; --ink:#e8e8e4; --muted:#9a9e94;
-      --line:#33352f; --accent:#4dbdb0; --accent-soft:#4dbdb022;
-      --warn:#e07a7a; --sel:#4dbdb0; --out:#a993e0; }
+    :root{ --bg:#141511; --panel:#1c1e19; --ink:#e9e9e3; --muted:#93968b;
+      --line:#30322b; --hairline:#26281f; --accent:#3fbdae; --accent-ink:#0c211d;
+      --accent-soft:#3fbdae1c; --warn:#e08585; --sel:#3fbdae; --out:#b3a1e8;
+      --shadow:0 1px 2px #0006; }
   }
   *{box-sizing:border-box}
+  ::-webkit-scrollbar{height:9px;width:9px}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+  ::-webkit-scrollbar-track{background:transparent}
   body{margin:0;background:var(--bg);color:var(--ink);
-       font:14px/1.45 ui-sans-serif,system-ui,sans-serif}
-  header{padding:8px 16px;border-bottom:1px solid var(--line);
-         display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
-  header h1{font-size:15px;margin:0}
+       font:14px/1.5 ui-sans-serif,system-ui,"Segoe UI",sans-serif}
+
+  header{padding:10px 18px;display:flex;gap:12px;align-items:center;
+         flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  header h1{font-size:15px;margin:0;letter-spacing:.01em}
+  header .badge{background:var(--accent-soft);color:var(--accent);
+    border-radius:999px;padding:2px 11px;font-size:12px;font-weight:600}
   header .sub{color:var(--muted);font-size:12px}
-  #promptbar{display:flex;gap:8px;padding:8px 16px;align-items:flex-start;
-             border-bottom:1px solid var(--line);flex-wrap:wrap}
-  textarea{flex:1;min-width:320px;min-height:36px;resize:vertical;
+
+  #promptbar{display:flex;gap:10px;padding:12px 18px 8px;align-items:flex-start;
+             flex-wrap:wrap}
+  textarea{flex:1;min-width:320px;min-height:42px;resize:vertical;
            background:var(--panel);color:var(--ink);border:1px solid var(--line);
-           border-radius:8px;padding:7px 10px;font:inherit}
-  button{background:var(--accent);color:#fff;border:0;border-radius:8px;
-         padding:7px 13px;font:inherit;cursor:pointer}
+           border-radius:var(--r);padding:9px 12px;font:inherit;
+           box-shadow:var(--shadow)}
+  textarea:focus,input:focus,select:focus{outline:2px solid var(--accent-soft);
+           border-color:var(--accent)}
+  button{background:var(--accent);color:var(--accent-ink);border:0;
+         border-radius:9px;padding:9px 16px;font:inherit;font-weight:600;
+         cursor:pointer;transition:filter .15s}
+  button:hover{filter:brightness(1.08)}
   button.ghost{background:transparent;color:var(--accent);
-               border:1px solid var(--accent)}
-  button:disabled{opacity:.45;cursor:default}
+               border:1px solid var(--accent);font-weight:500}
+  button.ghost:hover{background:var(--accent-soft);filter:none}
+  button:disabled{opacity:.5;cursor:default}
+  button.busy::after{content:"…";display:inline-block;
+    animation:dots 1s steps(4) infinite;width:1.2em;text-align:left}
+  @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
   select,input[type=text],input[type=number]{background:var(--panel);
-    color:var(--ink);border:1px solid var(--line);border-radius:6px;
-    padding:5px 8px;font:inherit}
-  label.opt{color:var(--muted);font-size:12px;display:flex;gap:5px;
+    color:var(--ink);border:1px solid var(--line);border-radius:8px;
+    padding:7px 10px;font:inherit}
+  label.opt{color:var(--muted);font-size:12.5px;display:flex;gap:6px;
             align-items:center;white-space:nowrap}
-  #examples{display:flex;gap:6px;align-items:center;padding:5px 16px;
-             flex-wrap:wrap;border-bottom:1px solid var(--line)}
-  #replybox{padding:6px 16px;border-bottom:1px solid var(--line);
-            font:13px ui-monospace,monospace}
-  #replybox span#replytext{background:var(--accent-soft);border-radius:8px;
-            padding:3px 8px;white-space:pre-wrap}
-  #adv{font-size:12px}
-  #adv summary{cursor:pointer;padding:6px 2px}
-  thead th.gen{color:var(--out)}
-  #status{color:var(--muted);font-size:12px;padding:2px 16px;min-height:18px}
+  #adv{font-size:12.5px;flex-basis:100%}
+  #adv summary{cursor:pointer;color:var(--muted);width:max-content;
+               padding:2px 0}
+  #adv .row{margin-top:6px}
+  #examples{display:flex;gap:7px;align-items:center;padding:2px 18px 10px;
+            flex-wrap:wrap}
+  #examples .hint{margin-right:2px}
+  #replybox{margin:0 18px 8px;padding:9px 13px;background:var(--panel);
+            border:1px solid var(--line);border-radius:var(--r);
+            box-shadow:var(--shadow);font-size:13px}
+  #replybox #replytext{font-family:ui-monospace,Menlo,monospace;
+            white-space:pre-wrap}
+  #status{color:var(--muted);font-size:12px;padding:0 18px 6px;min-height:16px}
   #status.err{color:var(--warn)}
 
-  #layout{display:flex;align-items:flex-start}
-  #left{flex:1;min-width:0;display:flex;flex-direction:column;
-        border-right:1px solid var(--line)}
-  #gridwrap{overflow:auto;max-height:56vh}
-  table{border-collapse:collapse;
-        font:12px/1.2 ui-monospace,Menlo,Consolas,monospace}
-  th,td{border:1px solid var(--line);padding:2px 6px;white-space:nowrap;
-        text-align:left}
-  thead th{position:sticky;top:0;background:var(--bg);z-index:2;
-           font-weight:600;color:var(--accent);cursor:pointer}
-  tbody th{position:sticky;left:0;background:var(--bg);z-index:1;
-           color:var(--muted);font-weight:500}
+  #layout{display:flex;align-items:flex-start;gap:0}
+  #left{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;
+        padding:0 12px 20px 18px}
+  #gridwrap{overflow:auto;max-height:56vh;background:var(--panel);
+            border:1px solid var(--line);border-radius:var(--r);
+            box-shadow:var(--shadow)}
+  table{border-collapse:separate;border-spacing:0;
+        font:12px/1.35 ui-monospace,Menlo,Consolas,monospace}
+  th,td{padding:3px 8px;white-space:nowrap;text-align:left;border:0}
+  thead th{position:sticky;top:0;background:var(--panel);z-index:3;
+           font-weight:650;color:var(--accent);cursor:pointer;
+           box-shadow:inset 0 -2px 0 var(--line)}
+  thead th.gen{color:var(--out);box-shadow:inset 0 -2px 0 var(--out)}
+  tbody th{position:sticky;left:0;background:var(--panel);z-index:2;
+           color:var(--muted);font-weight:500;
+           box-shadow:inset -2px 0 0 var(--hairline)}
   tbody th.band{color:var(--accent);font-weight:700}
-  tbody tr.outrow td{color:var(--out);font-style:italic}
-  tbody tr.outrow th{color:var(--out);font-weight:700}
-  td{cursor:pointer;max-width:112px;overflow:hidden;text-overflow:ellipsis}
-  td.sel{outline:2px solid var(--sel);outline-offset:-2px}
-  td sup{color:var(--muted);font-size:9px}
+  tbody td{border-bottom:1px solid var(--hairline)}
+  tbody tr:hover td{filter:brightness(.97)}
+  tbody tr.outrow td{color:var(--out);font-style:italic;
+    border-top:2px solid var(--line)}
+  tbody tr.outrow th{color:var(--out);font-weight:700;
+    border-top:2px solid var(--line)}
+  td{cursor:pointer;max-width:118px;overflow:hidden;text-overflow:ellipsis;
+     border-radius:4px}
+  td.sel{outline:2px solid var(--sel);outline-offset:-2px;border-radius:5px}
+  td sup{color:var(--muted);font-size:8.5px;margin-left:1px}
 
-  #pinsbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;
-           padding:8px 12px;border-top:1px solid var(--line)}
-  .chip{display:inline-flex;gap:5px;align-items:center;border-radius:14px;
-        padding:2px 9px;font:12px ui-monospace,monospace;cursor:pointer;
-        border:2px solid transparent;color:#111}
+  #pinsbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  #pinsbar input{min-width:170px}
+  .chip{display:inline-flex;gap:6px;align-items:center;border-radius:999px;
+        padding:4px 12px;font:12.5px ui-monospace,monospace;cursor:pointer;
+        border:2px solid transparent;color:#1e1e1e;font-weight:600;
+        box-shadow:var(--shadow)}
   .chip.active{border-color:var(--ink)}
-  .chip b{cursor:pointer;opacity:.6}
-  #charts{display:flex;gap:10px;padding:8px 12px;flex-wrap:wrap}
-  .chart{background:var(--panel);border:1px solid var(--line);
-         border-radius:10px;padding:6px}
-  .chart h3{margin:0 0 2px;font-size:11px;color:var(--muted);font-weight:500}
-  svg text{fill:var(--muted);font:9px ui-monospace,monospace}
-  svg .axis{stroke:var(--line)}
+  .chip b{cursor:pointer;opacity:.55;font-weight:800}
+  .chip b:hover{opacity:1}
 
-  #side{width:350px;flex-shrink:0;padding:10px;display:flex;
-        flex-direction:column;gap:10px;max-height:calc(100vh - 140px);
-        overflow:auto}
+  #charts{display:flex;gap:12px;flex-wrap:wrap}
+  .chart{background:var(--panel);border:1px solid var(--line);
+         border-radius:var(--r);padding:10px 12px;box-shadow:var(--shadow)}
+  .chart h3{margin:0 0 4px;font-size:11.5px;color:var(--muted);
+            font-weight:600;letter-spacing:.02em}
+  svg text{fill:var(--muted);font:9.5px ui-monospace,monospace}
+  svg .axis{stroke:var(--hairline)}
+  svg .lbl{font-weight:700}
+
+  #side{width:352px;flex-shrink:0;padding:0 18px 20px 6px;display:flex;
+        flex-direction:column;gap:12px;max-height:calc(100vh - 150px);
+        overflow:auto;position:sticky;top:0}
   .card{background:var(--panel);border:1px solid var(--line);
-        border-radius:10px;padding:9px 11px}
-  .card h2{font-size:11px;margin:0 0 6px;text-transform:uppercase;
-           letter-spacing:.06em;color:var(--muted)}
-  .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:3px 0}
-  .toklist div{display:flex;align-items:center;gap:6px;padding:1px 0;
-               font:12px ui-monospace,monospace}
+        border-radius:var(--r);padding:11px 13px;box-shadow:var(--shadow)}
+  .card h2{font-size:11px;margin:0 0 8px;text-transform:uppercase;
+           letter-spacing:.08em;color:var(--muted);font-weight:700}
+  .row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:4px 0}
+  .toklist div{display:flex;align-items:center;gap:5px;padding:2px 4px;
+               font:12.5px ui-monospace,monospace;border-radius:6px}
+  .toklist div:hover{background:var(--accent-soft)}
   .toklist .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:pre}
-  .toklist .s{color:var(--muted);width:50px;text-align:right}
-  .mini{font-size:11px;padding:1px 6px;border-radius:5px}
-  .slice{font:11px ui-monospace,monospace;max-height:150px;overflow:auto}
-  .slice div{white-space:nowrap;padding:1px 0}
-  .slice b{color:var(--accent);display:inline-block;width:34px;cursor:pointer}
-  .cols{display:flex;gap:10px}
+  .toklist .s{color:var(--muted);min-width:48px;text-align:right;
+              font-variant-numeric:tabular-nums}
+  .mini{font-size:11px;padding:2px 8px;border-radius:6px;font-weight:600}
+  .toklist .mini{opacity:.35;padding:1px 6px}
+  .toklist div:hover .mini{opacity:1}
+  .slice{font:11.5px ui-monospace,monospace;max-height:160px;overflow-y:auto;
+         overflow-x:hidden}
+  .slice div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+             padding:1.5px 4px;border-radius:5px}
+  .slice div:hover{background:var(--accent-soft)}
+  .slice b{color:var(--accent);display:inline-block;width:36px;cursor:pointer}
+  .cols{display:flex;gap:12px}
   .cols>div{flex:1;min-width:0}
-  .bar{height:14px;background:var(--accent-soft);border-radius:3px;
-       position:relative;margin:2px 0}
-  .bar i{position:absolute;inset:0;background:var(--accent);opacity:.55;
-         border-radius:3px}
+  .bar{height:16px;background:var(--accent-soft);border-radius:5px;
+       position:relative;margin:3px 0;overflow:hidden}
+  .bar i{position:absolute;inset:0;background:var(--accent);opacity:.5;
+         border-radius:5px}
   .bar span{position:relative;z-index:1;font:11px ui-monospace,monospace;
-            padding:0 4px;white-space:pre}
-  .gen{font:12px ui-monospace,monospace;background:var(--bg);border-radius:6px;
-       padding:5px 8px;margin-top:5px;white-space:pre-wrap;
-       word-break:break-word;max-height:100px;overflow:auto}
-  .tag{font-size:11px;color:var(--accent)}
+            padding:0 5px;white-space:pre;line-height:16px}
+  .gen{font:12px ui-monospace,monospace;background:var(--bg);border-radius:8px;
+       padding:7px 9px;margin-top:6px;white-space:pre-wrap;
+       word-break:break-word;max-height:110px;overflow:auto;
+       border:1px solid var(--hairline)}
+  .tag{font-size:11px;color:var(--accent);text-transform:none;
+       letter-spacing:0;font-weight:500}
   .hint{color:var(--muted);font-size:12px}
   #tt{position:fixed;background:var(--panel);border:1px solid var(--line);
-      border-radius:7px;padding:6px 9px;font:11px ui-monospace,monospace;
-      pointer-events:none;display:none;z-index:10;max-width:280px;
-      box-shadow:0 3px 14px #0003}
-  #tt .h{color:var(--accent);margin-bottom:3px}
-  #tt .pr{color:var(--muted)}
+      border-radius:9px;padding:7px 11px;font:11.5px ui-monospace,monospace;
+      pointer-events:none;display:none;z-index:10;max-width:300px;
+      box-shadow:0 6px 24px #00000030}
+  #tt .h{color:var(--accent);margin-bottom:4px;font-weight:700}
+  #tt .pr{margin-top:2px;font-weight:600}
 </style>
 </head>
 <body>
 <header>
   <h1>J-lens workbench</h1>
-  <span class="sub" id="modelinfo">ready — enter a prompt and press Read</span>
+  <span class="badge" id="modelinfo">ready</span>
   <span class="sub">click cells · ←→↑↓ to move · pin words for rank heatmap + charts · swap thoughts live</span>
 </header>
 
@@ -276,12 +321,13 @@ function cellStyle(li,pi){
   if (S.active >= 0){
     const r = S.pins[S.active].ranks[li][pi];
     if (r > 5000) return "";
-    const a = Math.max(.12, 1 - Math.log10(r)/3.7);
+    const a = Math.min(.82, Math.max(.12, 1 - Math.log10(r)/3.7));
     return `background:${S.pins[S.active].color}${
-      Math.round(a*255).toString(16).padStart(2,"0")}`;
+      Math.round(a*255).toString(16).padStart(2,"0")}${
+      a > .4 ? ";color:#1e1e1e" : ""}`;
   }
   const c = S.data.grid[li][pi], m = S.max || 1;
-  const a = Math.max(0, c.s/m)*0.5;
+  const a = Math.max(0, c.s/m)*0.42;
   return `background:rgba(11,110,100,${a.toFixed(2)})`;
 }
 function renderGrid(){
@@ -341,7 +387,7 @@ async function doRead(){
   status($("analyze").value==="reply"
     ? "Generating the reply, then reading its workspace…"
     : "Reading… (one forward pass + a lens readout per layer)");
-  $("readbtn").disabled = true;
+  $("readbtn").disabled = true; $("readbtn").classList.add("busy");
   try{
     const az = $("analyze").value;
     S.data = await api("read",{prompt:$("prompt").value, chat:az!=="raw",
@@ -357,7 +403,7 @@ async function doRead(){
     status(`${S.data.tokens.length} tokens × ${S.data.layers.length} layers · band L${S.data.band[0]}–L${S.data.band[1]} · OUT row = model's real prediction` +
       (S.data.reply ? " · purple header columns = the model's own reply" : ""));
   }catch(e){ status(e.message,true); }
-  $("readbtn").disabled = false;
+  $("readbtn").disabled = false; $("readbtn").classList.remove("busy");
 }
 
 // ---- selection + slices ----------------------------------------------------
@@ -373,9 +419,12 @@ async function selectCell(li, pi){
     $("detail").innerHTML = d.top.map(r=>`
       <div><span class="t">${esc(vis(r.tok))}</span>
         <span class="s">${r.score.toFixed(3)}</span>
-        <button class="mini ghost" onclick='pinWord(${JSON.stringify(r.tok)})'>📌</button>
-        <button class="mini ghost" onclick='$("src").value=${JSON.stringify(r.tok)}'>A</button>
-        <button class="mini ghost" onclick='$("tgt").value=${JSON.stringify(r.tok)}'>B</button>
+        <button class="mini ghost" title="pin this token"
+          onclick='pinWord(${JSON.stringify(r.tok)})'>pin</button>
+        <button class="mini ghost" title="use as swap source"
+          onclick='$("src").value=${JSON.stringify(r.tok)}'>A</button>
+        <button class="mini ghost" title="use as swap target"
+          onclick='$("tgt").value=${JSON.stringify(r.tok)}'>B</button>
       </div>`).join("");
     const sl = await api("slice",{layer:L,pos:pi,cosine:cos});
     $("bylayer").innerHTML = sl.bylayer.map((row,i)=>
@@ -430,7 +479,7 @@ function renderChips(){
 
 // ---- rank line charts ------------------------------------------------------
 function rankChart(xs, series, xticks, onclickFmt){
-  const W = Math.max(280, Math.min(640, xs.length*14+50)), H = 150,
+  const W = Math.max(300, Math.min(560, xs.length*13+90)), H = 160,
         mL = 34, mB = 16, mT = 6, mR = 6;
   const ymax = Math.log10(S.data.vocab || 150000);
   const X = i => mL + (W-mL-mR) * (xs.length<2 ? .5 : i/(xs.length-1));
@@ -440,10 +489,16 @@ function rankChart(xs, series, xticks, onclickFmt){
     g += `<line class="axis" x1="${mL}" x2="${W-mR}" y1="${Y(r)}" y2="${Y(r)}"/>
           <text x="2" y="${Y(r)+3}">${r>=1000? r/1000+"k" : r}</text>`; });
   xticks.forEach(([i,lab])=> g += `<text x="${X(i)-6}" y="${H-3}">${lab}</text>`);
-  series.forEach(s=>{
+  series.forEach((s,si)=>{
     const pts = s.vals.map((r,i)=>`${X(i)},${Y(r)}`).join(" ");
     g += `<polyline points="${pts}" fill="none" stroke="${s.color}"
-           stroke-width="1.7"/>`;
+           stroke-width="2.2" stroke-linejoin="round" opacity=".9"/>`;
+    if (s.vals.length <= 40)
+      s.vals.forEach((r,i)=> g += `<circle cx="${X(i)}" cy="${Y(r)}" r="2"
+        fill="${s.color}"/>`);
+    if (s.name) g += `<text class="lbl" fill="${s.color}" style="fill:${s.color}"
+        x="${X(s.vals.length-1)+3}" y="${Y(s.vals[s.vals.length-1])+3}"
+        >${s.name}</text>`;
   });
   if (S.sel && onclickFmt !== undefined){
     g += `<line class="axis" x1="${X(onclickFmt)}" x2="${X(onclickFmt)}"
@@ -454,7 +509,7 @@ function rankChart(xs, series, xticks, onclickFmt){
 function renderMinimaps(){
   const wrap = $("minimaps");
   const L = S.data.layers.length, T = S.data.tokens.length;
-  const cw = Math.max(3, Math.min(7, Math.floor(420/T))), ch = 4;
+  const cw = Math.max(4, Math.min(9, Math.floor(520/T))), ch = 5;
   wrap.innerHTML = S.pins.map((p,i)=>`<div class="chart">
     <h3><span style="color:${p.color}">■</span> ${esc(p.word)} — rank heat-map
       <span class="hint">(rows L${S.data.layers[0]}–L${S.data.layers[L-1]},
@@ -495,11 +550,11 @@ function renderCharts(){
   const Ls = S.data.layers, T = S.data.tokens.length;
   $("clh").textContent = `rank vs layer · at pos ${pi} (${vis(S.data.tokens[pi])})`;
   $("chartLayer").innerHTML = rankChart(Ls,
-    S.pins.map(p=>({color:p.color, vals:Ls.map((_,i)=>p.ranks[i][pi])})),
+    S.pins.map(p=>({color:p.color, name:p.word, vals:Ls.map((_,i)=>p.ranks[i][pi])})),
     Ls.map((L,i)=> i%4===0 ? [i,"L"+L] : null).filter(Boolean), li);
   $("cph").textContent = `rank vs position · at L${Ls[li]}`;
   $("chartPos").innerHTML = rankChart([...Array(T).keys()],
-    S.pins.map(p=>({color:p.color, vals:p.ranks[li]})),
+    S.pins.map(p=>({color:p.color, name:p.word, vals:p.ranks[li]})),
     [...Array(T).keys()].map(i=> i%5===0 ? [i,""+i] : null).filter(Boolean), pi);
 }
 
