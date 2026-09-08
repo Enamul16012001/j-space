@@ -194,19 +194,14 @@
       <button class="mini ghost" onclick="exportJSON()">export JSON</button></div>
   </details>
 </div>
-<div id="examples">
-  <span class="hint">try:</span>
-  <button class="mini ghost" onclick="loadExample(0)">pyramids → continent</button>
-  <button class="mini ghost" onclick="loadExample(1)">spider legs</button>
-  <button class="mini ghost" onclick="loadExample(2)">Winograd trophy</button>
-  <button class="mini ghost" onclick="loadExample(3)">hidden language</button>
-  <button class="mini ghost" onclick="loadExample(4)">think of a sport</button>
-</div>
+<div id="scenarios"></div>
 <div id="replybox" hidden><span class="hint" id="replylabel">model reply:</span>
   <span id="replytext"></span></div>
 <div id="status"></div>
 <div id="tt"></div>
 
+<button id="sidetoggle" class="ghost" title="hide/show panels"
+  onclick="toggleSide()">⟩</button>
 <div id="layout">
   <div id="left">
     <div id="gridwrap"><table id="grid"></table></div>
@@ -224,21 +219,22 @@
     </div>
   </div>
 
+  <div id="dragbar"></div>
   <div id="side">
-    <div class="card">
-      <h2>Cell detail <span class="tag" id="cellpos"></span></h2>
+    <details class="card" open>
+      <summary><h2>Cell detail <span class="tag" id="cellpos"></span></h2></summary>
       <div class="toklist" id="detail"><span class="hint">Click a grid cell.</span></div>
-    </div>
-    <div class="card">
-      <h2>Across layers <span class="tag" id="bylh"></span></h2>
+    </details>
+    <details class="card" open>
+      <summary><h2>Across layers <span class="tag" id="bylh"></span></h2></summary>
       <div class="slice" id="bylayer"><span class="hint">Select a cell.</span></div>
-    </div>
-    <div class="card">
-      <h2>Across positions <span class="tag" id="byph"></span></h2>
+    </details>
+    <details class="card" open>
+      <summary><h2>Across positions <span class="tag" id="byph"></span></h2></summary>
       <div class="slice" id="bypos"><span class="hint">Select a cell.</span></div>
-    </div>
-    <div class="card">
-      <h2>Intervene</h2>
+    </details>
+    <details class="card" open>
+      <summary><h2>Intervene</h2></summary>
       <div class="row">
         <select id="kind" onchange="kindChanged()">
           <option value="clamp" selected>clamped swap (Fig. 13)</option>
@@ -258,7 +254,7 @@
       </div>
       <div class="row"><button onclick="doIntervene()" id="ivbtn">Apply</button>
         <span class="hint">A/B buttons fill source/target</span></div>
-    </div>
+    </details>
     <div class="card" id="results" hidden>
       <h2>Result <span class="tag" id="ivlabel"></span></h2>
       <div class="cols">
@@ -273,24 +269,48 @@
 
 <script>
 const PALETTE = ["#e7b400","#3f8cff","#e05555","#9a5fe0","#38b24d","#e07a2e"];
-const EXAMPLES = [
- {p:"On which continent is the country famous for the pyramids of Giza? Reply with just the name.",
-  pins:["Egypt","Africa","Europe"], a:"reply"},
- {p:"How many legs does the animal that spins webs have? Reply with just the number.",
-  pins:["spider","ant"], a:"reply"},
- {p:"The trophy would not fit into the brown suitcase because it was far too large.",
-  pins:["trophy","suitcase"], a:"raw"},
- {p:"La lluvia caía despacio sobre los tejados del pueblo y nadie salió a la calle.\n\nWhat language is this passage written in? Answer with one word.",
-  pins:["Spanish","French"], a:"reply"},
- {p:"Think of a sport. Do not explain your reasoning. Reply with only its name.",
-  pins:[], a:"reply"},
+const SCENARIOS = [
+ {em:"💬", name:"Verbal Report", desc:"§3.1 — the model silently picks a sport; the lens reads the choice before it is spoken. Swap it for Rugby.",
+  p:"Think of a sport. Do not explain your reasoning. Reply with only its name.",
+  a:"reply", pins:[], iv:{kind:"swap", src:"", tgt:"Rugby"}},
+ {em:"🤔", name:"Directed Modulation", desc:"§3.2 — the model copies a sentence while silently thinking about citrus. The words never appear, the lens sees them.",
+  p:"While you copy the following sentence exactly, silently concentrate on citrus fruits. Do not mention them:\n\nThe old painting hung crookedly on the wall.",
+  a:"reply", prefill:"The old painting hung crookedly on the wall.", maxnew:2,
+  pins:["citrus","lemon","orange"], iv:{}},
+ {em:"🕷️", name:"Multi-Hop", desc:"§3.3 — 'the animal that spins webs' → spider (never written) → 8. Clamp-swap spider→ant and the answer becomes 6.",
+  p:"How many legs does the animal that spins webs have? Reply with just the number.",
+  a:"reply", pins:["spider","ant"], iv:{kind:"clamp", src:"spider", tgt:"ant"}},
+ {em:"📡", name:"Broadcast", desc:"§3.4 — one France→China swap redirects capital, language, continent, currency alike.",
+  p:"Which continent is France on? Reply with one word.",
+  a:"reply", pins:["France","China"], iv:{kind:"swap", src:"France", tgt:"China"}},
+ {em:"🔀", name:"Selective Mediation", desc:"§3.5 — Spanish is in the workspace; swapping it flips the *report* but the model still continues in Spanish.",
+  p:"La lluvia caía despacio sobre los tejados del pueblo y nadie salió a la calle.\n\nWhat language is this passage written in? Answer with one word.",
+  a:"reply", pins:["Spanish","French"], iv:{kind:"clamp", src:"Spanish", tgt:"French"}},
+ {em:"🗿", name:"Silent Inference", desc:"Pyramids → Egypt (never written) → Africa. Clamp-swap Egypt→France and watch the continent change.",
+  p:"On which continent is the country famous for the pyramids of Giza? Reply with just the name.",
+  a:"reply", pins:["Egypt","Africa"], iv:{kind:"clamp", src:"Egypt", tgt:"France"}},
+ {em:"✏️", name:"Free Chat", desc:"Ask anything and explore.", p:"", a:"reply",
+  pins:[], iv:{}},
 ];
-async function loadExample(i){
-  const e = EXAMPLES[i];
+function renderScenarios(){
+  $("scenarios").innerHTML = SCENARIOS.map((e,i)=>
+    `<div class="scen ${S.scen===i?'active':''}" onclick="loadScenario(${i})">
+       <span class="em">${e.em}</span>${e.name}</div>`).join("");
+}
+async function loadScenario(i){
+  const e = SCENARIOS[i];
+  S.scen = i; renderScenarios();
   $("prompt").value = e.p; $("analyze").value = e.a;
+  $("prefill").value = e.prefill || "";
+  $("maxnew").value = e.maxnew || 48;
+  if (e.iv.kind){ $("kind").value = e.iv.kind; kindChanged();
+    $("src").value = e.iv.src || ""; $("tgt").value = e.iv.tgt || ""; }
+  if (!e.p){ $("prompt").focus(); status(e.desc); return; }
   await doRead();
   for (const w of e.pins){ $("pinword").value = w; await doPin(); }
-  if (S.pins.length) setActive(0);
+  if (S.pins.length) S.active = 0;
+  renderChips(); if (S.data) renderGrid();
+  status(e.desc + (e.iv.kind ? "  →  press Apply in the Intervene panel." : ""));
 }
 function exportJSON(){
   if (!S.data) return;
@@ -587,6 +607,31 @@ async function doIntervene(){
   $("ivbtn").disabled = false;
 }
 $("ws").addEventListener("change", ()=>{ if (S.data){ renderGrid(); }});
+
+// ---- resizable / collapsible sidebar ----
+const side = $("side"), drag = $("dragbar");
+try{ const w = localStorage.getItem("jl-sidew");
+     if (w) side.style.width = w + "px";
+     if (localStorage.getItem("jl-sidehide") === "1") toggleSide(true);
+}catch(e){}
+let dragging = false;
+drag.addEventListener("pointerdown", e=>{ dragging = true;
+  drag.setPointerCapture(e.pointerId); });
+drag.addEventListener("pointermove", e=>{
+  if (!dragging) return;
+  const w = Math.min(640, Math.max(240, innerWidth - e.clientX - 12));
+  side.style.width = w + "px";
+  try{ localStorage.setItem("jl-sidew", w); }catch(_){}
+});
+drag.addEventListener("pointerup", ()=> dragging = false);
+function toggleSide(init){
+  const hide = init === true ? true : side.style.display !== "none";
+  side.style.display = hide ? "none" : "flex";
+  drag.style.display = hide ? "none" : "block";
+  $("sidetoggle").textContent = hide ? "⟨" : "⟩";
+  try{ localStorage.setItem("jl-sidehide", hide ? "1" : "0"); }catch(e){}
+}
+renderScenarios();
 
 // show which model + lens this server is running, before any Read
 (async ()=>{ try{
