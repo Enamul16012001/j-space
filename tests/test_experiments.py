@@ -102,6 +102,29 @@ for name in SCRIPTS:
         print(f"  FAIL {name}")
         print("       " + traceback.format_exc().strip().replace("\n", "\n       "))
 
+# ---- workbench (server logic only, no HTTP) --------------------------------
+try:
+    import threading
+    import workbench
+    from jlens import JLens as _JL
+    wb = workbench.Workbench.__new__(workbench.Workbench)
+    wb.model, wb.tok = MODEL, TOK
+    wb.lens = _JL(MODEL, TOK, config.JLENS_PATH)
+    wb.band = wb.layers = [1, 2, 3]
+    wb.lock = threading.Lock()
+    wb.ids = wb.hs = None
+    r = wb.read("the animal that spins webs", chat=False)
+    assert len(r["grid"]) == 3 and len(r["tokens"]) > 3
+    assert len(wb.detail(2, -1)["top"]) == 15
+    assert "ranks" in wb.pin("the")
+    assert "edited" in wb.intervene("swap", "a", "b", 1.0, 1, 3, max_new=3)
+    assert "edited" in wb.intervene("clamp", "a", "b", 1.0, 1, 3, max_new=3)
+    assert "edited" in wb.intervene("steer", "", "b", 4.0, 1, 3, max_new=3)
+    print("  ok   workbench (read/detail/pin/swap/clamp/steer)")
+except Exception:
+    bad.append("workbench")
+    print("  FAIL workbench"); import traceback; traceback.print_exc()
+
 print(f"\n{len(ok)} scripts ran, {len(bad)} failed")
 if bad:
     sys.exit(1)

@@ -88,6 +88,7 @@ jlens/jspace.py            sparse decomposition, occupancy, random control
 jlens/interventions.py     Steer / ProjectOut / Swap / ClampSwap / TopKJSpaceAblate
 jlens/utils.py             printing helpers
 experiments/00–12          the paper's experiments (see table)
+workbench.py + .html       interactive browser UI: read / pin / intervene
 tests/test_math.py         J-lens/J-space maths vs reference (CPU, no download)
 tests/test_experiments.py  smoke-runs every experiment on a tiny random model
 ```
@@ -102,6 +103,26 @@ python tests/test_experiments.py   # runs experiments 00-12 end to end
 Residual-stream indexing everywhere: **layer 0 = embeddings, layer i = output
 of block i** (Qwen3-4B has 36 blocks; the default Jacobian target is the
 penultimate residual, layer 35).
+
+## Interactive workbench
+
+```bash
+python workbench.py            # open http://localhost:7860
+```
+
+A browser UI over the lens (this repo's own code; stdlib server, vanilla JS,
+no extra dependencies):
+
+- **Read**: the layer × position grid of top lens tokens for any prompt,
+  cosine or raw readout, workspace band highlighted, top-3 tooltips.
+- **Pin**: type any word (or click 📌 in a cell's detail) to heat-map its
+  rank across every cell — the paper's Figure 5 view.
+- **Intervene**: pick a source and target (the A/B buttons fill them from a
+  cell's readout), choose clamped swap / swap / steer and a layer range, and
+  compare the clean vs edited next-token distribution and generation live.
+
+Over VS Code Remote-SSH the port is forwarded automatically. The GPU serves
+one request at a time; a full read takes a few seconds per prompt.
 
 ## Experiment ↔ paper map
 

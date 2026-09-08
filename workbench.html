@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J-lens workbench</title>
+<style>
+  :root{
+    --bg:#f7f7f5; --panel:#ffffff; --ink:#1a1a1a; --muted:#767a72;
+    --line:#e3e3de; --accent:#0b6e64; --accent-soft:#0b6e6422;
+    --pin:#b46900; --warn:#a33; --sel:#0b6e64;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#161715; --panel:#1e201d; --ink:#e8e8e4; --muted:#9a9e94;
+      --line:#33352f; --accent:#4dbdb0; --accent-soft:#4dbdb022;
+      --pin:#e0a458; --warn:#e07a7a; --sel:#4dbdb0; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.45 ui-sans-serif,system-ui,sans-serif}
+  header{padding:10px 16px;border-bottom:1px solid var(--line);
+         display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+  header h1{font-size:15px;margin:0}
+  header .sub{color:var(--muted);font-size:12px}
+  #promptbar{display:flex;gap:8px;padding:10px 16px;align-items:flex-start;
+             border-bottom:1px solid var(--line);flex-wrap:wrap}
+  textarea{flex:1;min-width:340px;min-height:38px;resize:vertical;
+           background:var(--panel);color:var(--ink);border:1px solid var(--line);
+           border-radius:8px;padding:8px 10px;font:inherit}
+  button{background:var(--accent);color:#fff;border:0;border-radius:8px;
+         padding:8px 14px;font:inherit;cursor:pointer}
+  button.ghost{background:transparent;color:var(--accent);
+               border:1px solid var(--accent)}
+  button:disabled{opacity:.45;cursor:default}
+  select,input[type=text],input[type=number]{background:var(--panel);
+    color:var(--ink);border:1px solid var(--line);border-radius:6px;
+    padding:6px 8px;font:inherit}
+  label.opt{color:var(--muted);font-size:12px;display:flex;gap:5px;
+            align-items:center;white-space:nowrap}
+  #status{color:var(--muted);font-size:12px;padding:2px 16px;min-height:18px}
+  #status.err{color:var(--warn)}
+
+  #layout{display:flex;align-items:flex-start}
+  #gridwrap{flex:1;overflow:auto;max-height:calc(100vh - 150px);
+            border-right:1px solid var(--line)}
+  table{border-collapse:collapse;font:12px/1.2 ui-monospace,Menlo,Consolas,monospace}
+  th,td{border:1px solid var(--line);padding:3px 6px;white-space:nowrap;
+        text-align:left}
+  thead th{position:sticky;top:0;background:var(--bg);z-index:2;
+           font-weight:600;color:var(--accent)}
+  tbody th{position:sticky;left:0;background:var(--bg);z-index:1;
+           color:var(--muted);font-weight:500}
+  tbody th.band{color:var(--accent);font-weight:700}
+  td{cursor:pointer;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+  td.sel{outline:2px solid var(--sel);outline-offset:-2px}
+  td small{color:var(--muted)}
+
+  #side{width:340px;flex-shrink:0;padding:12px;display:flex;
+        flex-direction:column;gap:14px;max-height:calc(100vh - 150px);
+        overflow:auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+        padding:10px 12px}
+  .card h2{font-size:12px;margin:0 0 8px;text-transform:uppercase;
+           letter-spacing:.06em;color:var(--muted)}
+  .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0}
+  .toklist div{display:flex;align-items:center;gap:6px;padding:2px 0;
+               font-family:ui-monospace,monospace;font-size:12px}
+  .toklist .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:pre}
+  .toklist .s{color:var(--muted);width:52px;text-align:right}
+  .mini{font-size:11px;padding:2px 7px;border-radius:5px}
+  .legend{display:flex;gap:2px;align-items:center;font-size:11px;
+          color:var(--muted)}
+  .legend i{width:22px;height:12px;display:inline-block;border-radius:2px}
+  .cols{display:flex;gap:10px}
+  .cols>div{flex:1;min-width:0}
+  .bar{height:14px;background:var(--accent-soft);border-radius:3px;
+       position:relative;margin:2px 0}
+  .bar i{position:absolute;inset:0;background:var(--accent);opacity:.55;
+         border-radius:3px}
+  .bar span{position:relative;z-index:1;font:11px ui-monospace,monospace;
+            padding:0 4px;white-space:pre}
+  .gen{font:12px ui-monospace,monospace;background:var(--bg);
+       border-radius:6px;padding:6px 8px;margin-top:6px;white-space:pre-wrap;
+       word-break:break-word;max-height:110px;overflow:auto}
+  .tag{font-size:11px;color:var(--pin)}
+  .hint{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>J-lens workbench</h1>
+  <span class="sub" id="modelinfo">loading…</span>
+  <span class="sub">click a cell to inspect · pin a word to see its rank everywhere · swap thoughts and watch the answer change</span>
+</header>
+
+<div id="promptbar">
+  <textarea id="prompt">On which continent is the country famous for the pyramids of Giza? Reply with just the name.</textarea>
+  <label class="opt"><input type="checkbox" id="chat" checked> chat template</label>
+  <label class="opt">readout
+    <select id="mode"><option value="cosine" selected>cosine</option>
+      <option value="raw">raw logits</option></select></label>
+  <button id="readbtn" onclick="doRead()">Read</button>
+</div>
+<div id="status"></div>
+
+<div id="layout">
+  <div id="gridwrap"><table id="grid"></table></div>
+  <div id="side">
+    <div class="card">
+      <h2>Pin a word</h2>
+      <div class="row">
+        <input type="text" id="pinword" placeholder="e.g. Egypt" size="12">
+        <button class="mini" onclick="doPin()">Pin</button>
+        <button class="mini ghost" onclick="unpin()">Unpin</button>
+      </div>
+      <div class="legend" id="pinlegend" hidden>
+        rank&nbsp;1 <i style="background:#e7b400"></i>
+        <i style="background:#e7b40099"></i>
+        <i style="background:#e7b40055"></i>
+        <i style="background:#e7b40022"></i> &gt;5000
+      </div>
+      <div class="hint" id="pinstate">Nothing pinned. The grid colours by
+        readout strength.</div>
+    </div>
+
+    <div class="card">
+      <h2>Cell detail <span class="tag" id="cellpos"></span></h2>
+      <div class="toklist" id="detail"><span class="hint">Click a grid
+        cell.</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Intervene</h2>
+      <div class="row">
+        <select id="kind" onchange="kindChanged()">
+          <option value="clamp" selected>clamped swap (Fig. 13)</option>
+          <option value="swap">swap (§2.5)</option>
+          <option value="steer">steer (add concept)</option>
+        </select>
+      </div>
+      <div class="row"><label class="opt">source</label>
+        <input type="text" id="src" size="10" placeholder="Egypt"></div>
+      <div class="row"><label class="opt">target</label>
+        <input type="text" id="tgt" size="10" placeholder="France"></div>
+      <div class="row">
+        <label class="opt">α <input type="number" id="alpha" value="1.0"
+          step="0.5" style="width:60px" disabled></label>
+        <label class="opt">layers <input type="number" id="lo" style="width:56px">
+          – <input type="number" id="hi" style="width:56px"></label>
+      </div>
+      <div class="row"><button onclick="doIntervene()" id="ivbtn">Apply</button>
+        <span class="hint">use detail-row buttons A/B to fill source/target</span>
+      </div>
+    </div>
+
+    <div class="card" id="results" hidden>
+      <h2>Result <span class="tag" id="ivlabel"></span></h2>
+      <div class="cols">
+        <div><strong class="hint">clean</strong><div id="cleantop"></div>
+          <div class="gen" id="cleangen"></div></div>
+        <div><strong class="hint">edited</strong><div id="edittop"></div>
+          <div class="gen" id="editgen"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let S = {data:null, pinned:null, sel:null};
+
+const $ = id => document.getElementById(id);
+function status(msg, err=false){ const el=$("status");
+  el.textContent = msg; el.className = err ? "err" : ""; }
+
+async function api(route, body){
+  const r = await fetch("/api/"+route, {method:"POST",
+    headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  const j = await r.json();
+  if (!r.ok || j.error) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+function vis(s){ return s === " " ? "·" : s.replaceAll("\n","⏎"); }
+
+// ---- grid ------------------------------------------------------------------
+function cellColor(li, pi){
+  if (S.pinned){
+    const r = S.pinned.ranks[li][pi];
+    if (r > 5000) return "";
+    const a = Math.max(0.12, 1 - Math.log10(r)/3.7);
+    return `background:rgba(231,180,0,${a.toFixed(2)})`;
+  }
+  const sc = S.data.scores[li][pi], m = S.max || 1;
+  const a = Math.max(0, sc/m) * 0.55;
+  return `background:rgba(11,110,100,${a.toFixed(2)})`;
+}
+
+function renderGrid(){
+  const d = S.data, band = d.band;
+  S.max = Math.max(...d.scores.flat());
+  let h = "<thead><tr><th></th>";
+  d.tokens.forEach((t,i)=> h += `<th title="position ${i}">${esc(vis(t))}</th>`);
+  h += "</tr></thead><tbody>";
+  d.layers.forEach((L,li)=>{
+    const inband = L>=band[0] && L<=band[1];
+    h += `<tr><th class="${inband?'band':''}">L${L}</th>`;
+    d.tokens.forEach((_,pi)=>{
+      const top3 = d.grid[li][pi];
+      const rank = S.pinned ? `  rank ${S.pinned.ranks[li][pi]}` : "";
+      h += `<td style="${cellColor(li,pi)}" onclick="selectCell(${li},${pi})"
+             title="${esc(top3.map(vis).join(" | "))}${rank}"
+             id="c-${li}-${pi}">${esc(vis(top3[0]))}</td>`;
+    });
+    h += "</tr>";
+  });
+  $("grid").innerHTML = h + "</tbody>";
+  if (S.sel) markSel();
+}
+
+function markSel(){
+  document.querySelectorAll("td.sel").forEach(e=>e.classList.remove("sel"));
+  const el = $(`c-${S.sel[0]}-${S.sel[1]}`);
+  if (el) el.classList.add("sel");
+}
+
+async function doRead(){
+  status("Reading… (one forward pass + a lens readout per layer)");
+  $("readbtn").disabled = true;
+  try{
+    S.data = await api("read", {prompt: $("prompt").value,
+      chat: $("chat").checked, cosine: $("mode").value === "cosine"});
+    S.pinned = null; S.sel = null;
+    $("pinstate").textContent = "Nothing pinned. The grid colours by readout strength.";
+    $("pinlegend").hidden = true;
+    $("lo").value = S.data.band[0]; $("hi").value = S.data.band[1];
+    $("modelinfo").textContent = S.data.model;
+    renderGrid();
+    status(`${S.data.tokens.length} tokens × ${S.data.layers.length} layers · workspace band L${S.data.band[0]}–L${S.data.band[1]} highlighted`);
+  } catch(e){ status(e.message, true); }
+  $("readbtn").disabled = false;
+}
+
+// ---- detail ----------------------------------------------------------------
+async function selectCell(li, pi){
+  S.sel = [li, pi]; markSel();
+  const L = S.data.layers[li];
+  $("cellpos").textContent = `L${L} · pos ${pi} (${vis(S.data.tokens[pi])})`;
+  try{
+    const d = await api("detail", {layer:L, pos:pi,
+                                   cosine: $("mode").value === "cosine"});
+    $("detail").innerHTML = d.top.map(r=>`
+      <div><span class="t">${esc(vis(r.tok))}</span>
+        <span class="s">${r.score.toFixed(3)}</span>
+        <button class="mini ghost" title="pin"
+          onclick='pinWord(${JSON.stringify(r.tok)})'>📌</button>
+        <button class="mini ghost" title="use as swap source"
+          onclick='$("src").value=${JSON.stringify(r.tok)}'>A</button>
+        <button class="mini ghost" title="use as swap target"
+          onclick='$("tgt").value=${JSON.stringify(r.tok)}'>B</button>
+      </div>`).join("");
+  } catch(e){ status(e.message, true); }
+}
+
+// ---- pinning ---------------------------------------------------------------
+async function pinWord(w){ $("pinword").value = w.trim(); await doPin(); }
+async function doPin(){
+  const w = $("pinword").value.trim();
+  if (!w || !S.data) return;
+  status(`Ranking ${JSON.stringify(w)} at every cell…`);
+  try{
+    S.pinned = await api("pin", {word:w});
+    $("pinstate").innerHTML = `Pinned <b>${esc(w)}</b> — gold = high rank
+      (best rank ${Math.min(...S.pinned.ranks.flat())}).`;
+    $("pinlegend").hidden = false;
+    renderGrid(); status("");
+  } catch(e){ status(e.message, true); }
+}
+function unpin(){ S.pinned = null; $("pinlegend").hidden = true;
+  $("pinstate").textContent = "Nothing pinned."; if (S.data) renderGrid(); }
+
+// ---- interventions ---------------------------------------------------------
+function kindChanged(){
+  const k = $("kind").value;
+  $("alpha").disabled = (k === "clamp");
+  $("src").disabled = (k === "steer");
+}
+function bars(top){
+  return top.map(t=>`<div class="bar"><i style="width:${(t.p*100).toFixed(1)}%"></i>
+    <span>${esc(vis(t.tok))} ${(t.p*100).toFixed(1)}%</span></div>`).join("");
+}
+async function doIntervene(){
+  if (!S.data) { status("read a prompt first", true); return; }
+  $("ivbtn").disabled = true;
+  status("Intervening… (two forward passes + two generations)");
+  try{
+    const r = await api("intervene", {kind: $("kind").value,
+      source: $("src").value, target: $("tgt").value,
+      alpha: parseFloat($("alpha").value || "1"),
+      lo: parseInt($("lo").value), hi: parseInt($("hi").value)});
+    $("results").hidden = false;
+    $("ivlabel").textContent = `${r.label} @ L${r.layers[0]}–L${r.layers[1]}`;
+    $("cleantop").innerHTML = bars(r.clean.top);
+    $("edittop").innerHTML = bars(r.edited.top);
+    $("cleangen").textContent = r.clean.gen;
+    $("editgen").textContent = r.edited.gen;
+    status("");
+  } catch(e){ status(e.message, true); }
+  $("ivbtn").disabled = false;
+}
+
+$("modelinfo").textContent = "ready — enter a prompt and press Read";
+</script>
+</body>
+</html>
