@@ -202,7 +202,7 @@
   <button class="mini ghost" onclick="loadExample(3)">hidden language</button>
   <button class="mini ghost" onclick="loadExample(4)">think of a sport</button>
 </div>
-<div id="replybox" hidden><span class="hint">model reply:</span>
+<div id="replybox" hidden><span class="hint" id="replylabel">model reply:</span>
   <span id="replytext"></span></div>
 <div id="status"></div>
 <div id="tt"></div>
@@ -395,9 +395,10 @@ async function doRead(){
       max_new:parseInt($("maxnew").value||"48"),
       cosine:$("mode").value==="cosine", words_only:$("wordsonly").checked});
     S.pins = []; S.active = -1; S.sel = null;
-    $("modelinfo").textContent = S.data.model;
     $("lo").value = S.data.band[0]; $("hi").value = S.data.band[1];
     $("replybox").hidden = !S.data.reply;
+    $("replylabel").textContent =
+      (S.info ? S.info.model.split("/").pop() : "model") + " replies: ";
     $("replytext").textContent = S.data.reply || "";
     renderGrid(); renderChips(); renderCharts();
     status(`${S.data.tokens.length} tokens × ${S.data.layers.length} layers · band L${S.data.band[0]}–L${S.data.band[1]} · OUT row = model's real prediction` +
@@ -586,6 +587,15 @@ async function doIntervene(){
   $("ivbtn").disabled = false;
 }
 $("ws").addEventListener("change", ()=>{ if (S.data){ renderGrid(); }});
+
+// show which model + lens this server is running, before any Read
+(async ()=>{ try{
+  const r = await fetch("/api/info"); const i = await r.json();
+  S.info = i;
+  $("modelinfo").textContent =
+    `${i.model} · lens: ${i.lens_file} (${i.lens_prompts} prompts) · ${i.device}`;
+  document.title = `J-lens — ${i.model.split("/").pop()}`;
+}catch(e){} })();
 </script>
 </body>
 </html>

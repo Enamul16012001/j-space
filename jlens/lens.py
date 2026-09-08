@@ -186,6 +186,8 @@ class JLens:
         data = torch.load(path, map_location="cpu", weights_only=True)
         self.model, self.tok = model, tok
         self.target_layer = data["target_layer"]
+        self.n_prompts = data.get("n_prompts")
+        self.path = str(path)
         self.J = {l: m.to(model.device).float() for l, m in data["J"].items()}
         self.W_U = model.get_output_embeddings().weight        # [vocab, d]
         self.gamma = model.model.norm.weight.float()           # final RMSNorm gain

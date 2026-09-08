@@ -205,6 +205,12 @@ def main():
             if self.path in ("/", "/index.html"):
                 self._send(200, (ROOT / "workbench.html").read_bytes(),
                            "text/html; charset=utf-8")
+            elif self.path == "/api/info":
+                self._send(200, {"model": config.MODEL_NAME,
+                                 "lens_file": pathlib.Path(wb.lens.path).name,
+                                 "lens_prompts": wb.lens.n_prompts,
+                                 "band": [wb.band[0], wb.band[-1]],
+                                 "device": config.DEVICE})
             else:
                 self._send(404, {"error": "not found"})
 
