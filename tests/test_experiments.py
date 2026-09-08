@@ -113,14 +113,18 @@ try:
     wb.band = wb.layers = [1, 2, 3]
     wb.lock = threading.Lock()
     wb.ids = wb.hs = None
-    r = wb.read("the animal that spins webs", chat=False)
+    r = wb.read("the animal that spins webs", chat=False, words_only=True)
     assert len(r["grid"]) == 3 and len(r["tokens"]) > 3
+    assert len(r["outrow"]) == len(r["tokens"]) and "vocab" in r
+    assert {"t", "r", "s", "t3"} <= set(r["grid"][0][0])
+    sl = wb.slice(2, -1)
+    assert len(sl["bylayer"]) == 3 and len(sl["bypos"]) == len(r["tokens"])
     assert len(wb.detail(2, -1)["top"]) == 15
     assert "ranks" in wb.pin("the")
     assert "edited" in wb.intervene("swap", "a", "b", 1.0, 1, 3, max_new=3)
     assert "edited" in wb.intervene("clamp", "a", "b", 1.0, 1, 3, max_new=3)
     assert "edited" in wb.intervene("steer", "", "b", 4.0, 1, 3, max_new=3)
-    print("  ok   workbench (read/detail/pin/swap/clamp/steer)")
+    print("  ok   workbench (read/outrow/slice/detail/pin/swap/clamp/steer)")
 except Exception:
     bad.append("workbench")
     print("  FAIL workbench"); import traceback; traceback.print_exc()

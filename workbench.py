@@ -1,14 +1,14 @@
 """Interactive J-lens workbench: read the residual stream in the browser,
-pin tokens to see their rank across every (layer, position) cell, and apply
-live interventions (clamped swap / swap / steer) to watch the model's answer
-change.
+pin words to heat-map their rank across every (layer, position) cell, follow
+rank trajectories in charts, and apply live interventions (clamped swap /
+swap / steer) to watch the model's answer change.
 
     python workbench.py            # then open http://localhost:7860
     python workbench.py --port 7861
 
-Uses only the Python standard library for the server; the page is plain HTML
-and vanilla JS served from workbench.html next to this file.  Everything runs
-through this repo's own jlens package.
+Standard-library server; the page is plain HTML + vanilla JS served from
+workbench.html next to this file.  Everything runs through this repo's own
+jlens package.
 """
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -17,15 +17,17 @@ import config
 
 import argparse
 import json
+import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import torch
 
-from jlens import (load_model, chat_ids, JLens, forward_hidden, generate,
+from jlens import (load_model, chat_ids, JLens, generate,
                    next_token_logits, swap_edits, clamp_swap_edits, steer_edits)
 
 ROOT = pathlib.Path(__file__).resolve().parent
+WORDLIKE = re.compile(r"[^\W_]", re.UNICODE)     # any letter or digit
 
 
 class Workbench:
@@ -39,35 +41,69 @@ class Workbench:
         self.layers = list(range(2, self.lens.target_layer + 1))
         self.lock = threading.Lock()        # one GPU, one request at a time
         self.ids = None                     # last prompt's token ids
-        self.hs = None                      # and hidden states
+        self.hs = None                      # hidden states
+        self.out_logits = None              # model's real per-position logits
+
+    def _readout(self, H, layer, cosine):
+        return (self.lens.cosine(H, layer) if cosine
+                else self.lens.logits(H, layer))
 
     # ---- reading -----------------------------------------------------------
-    def read(self, prompt, chat=False, cosine=True):
+    def read(self, prompt, chat=False, cosine=True, words_only=False):
         ids = (chat_ids(self.tok, prompt) if chat
                else self.tok(prompt, return_tensors="pt", truncation=True,
                              max_length=192).input_ids)
-        hs, _ = forward_hidden(self.model, ids)
-        self.ids, self.hs = ids, hs
+        with torch.no_grad():
+            out = self.model(ids.to(self.model.device),
+                             output_hidden_states=True, use_cache=False)
+        self.ids, self.hs = ids, out.hidden_states
+        self.out_logits = out.logits[0].float()
 
         tokens = [self.tok.decode([t]) for t in ids[0].tolist()]
-        grid, scores = [], []
+        grid = []                       # grid[layer][pos] = [tok, rank, top3…]
         for l in self.layers:
-            S = (self.lens.cosine(hs[l][0], l) if cosine
-                 else self.lens.logits(hs[l][0], l))
-            top3 = S.topk(3, dim=-1)
-            grid.append([[self.tok.decode([i]) for i in row.tolist()]
-                         for row in top3.indices])
-            scores.append(top3.values[:, 0].tolist())
+            S = self._readout(self.hs[l][0], l, cosine)
+            vals, idx = S.topk(24 if words_only else 3, dim=-1)
+            row = []
+            for p in range(len(tokens)):
+                toks = [self.tok.decode([i]) for i in idx[p].tolist()]
+                pick = 0
+                if words_only:
+                    pick = next((i for i, t in enumerate(toks)
+                                 if WORDLIKE.search(t)), 0)
+                row.append({"t": toks[pick], "r": pick + 1,
+                            "s": round(vals[p, pick].item(), 3),
+                            "t3": toks[pick:pick + 3]})
+            grid.append(row)
+
+        # the model's actual next-token prediction per position (final row)
+        p = torch.softmax(self.out_logits, -1)
+        pv, pi = p.max(-1)
+        outrow = [{"t": self.tok.decode([i]), "p": round(v, 3)}
+                  for i, v in zip(pi.tolist(), pv.tolist())]
+
         return {"model": config.MODEL_NAME, "tokens": tokens,
                 "layers": self.layers, "band": [self.band[0], self.band[-1]],
-                "grid": grid, "scores": scores}
+                "vocab": self.lens.vocab, "grid": grid, "outrow": outrow}
 
     def detail(self, layer, pos, cosine=True, k=15):
-        h = self.hs[layer][0, pos]
-        S = self.lens.cosine(h, layer) if cosine else self.lens.logits(h, layer)
+        S = self._readout(self.hs[layer][0, pos], layer, cosine)
         vals, idx = S.topk(k)
         return {"top": [{"tok": self.tok.decode([i]), "score": round(v, 4)}
                         for i, v in zip(idx.tolist(), vals.tolist())]}
+
+    def slice(self, layer, pos, cosine=True, k=6):
+        """Readout across all layers at `pos`, and across all positions at
+        `layer` (the paper's Fig. 5 side panels)."""
+        bylayer = []
+        for l in self.layers:
+            S = self._readout(self.hs[l][0, pos], l, cosine)
+            vals, idx = S.topk(k)
+            bylayer.append([self.tok.decode([i]) for i in idx.tolist()])
+        S = self._readout(self.hs[layer][0], layer, cosine)
+        vals, idx = S.topk(k, dim=-1)
+        bypos = [[self.tok.decode([i]) for i in r.tolist()] for r in idx]
+        return {"bylayer": bylayer, "bypos": bypos}
 
     def pin(self, word):
         """Rank of `word` (best single-token spelling) at every cell."""
@@ -159,13 +195,17 @@ def main():
                 with wb.lock:
                     if route == "read":
                         out = wb.read(req["prompt"], req.get("chat", False),
-                                      req.get("cosine", True))
-                    elif route in ("detail", "pin", "intervene"):
+                                      req.get("cosine", True),
+                                      req.get("words_only", False))
+                    elif route in ("detail", "slice", "pin", "intervene"):
                         if wb.hs is None:
                             raise ValueError("read a prompt first")
                         if route == "detail":
                             out = wb.detail(int(req["layer"]), int(req["pos"]),
                                             req.get("cosine", True))
+                        elif route == "slice":
+                            out = wb.slice(int(req["layer"]), int(req["pos"]),
+                                           req.get("cosine", True))
                         elif route == "pin":
                             out = wb.pin(req["word"])
                         else:

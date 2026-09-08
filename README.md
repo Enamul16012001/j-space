@@ -114,12 +114,17 @@ A browser UI over the lens (this repo's own code; stdlib server, vanilla JS,
 no extra dependencies):
 
 - **Read**: the layer × position grid of top lens tokens for any prompt,
-  cosine or raw readout, workspace band highlighted, top-3 tooltips.
-- **Pin**: type any word (or click 📌 in a cell's detail) to heat-map its
-  rank across every cell — the paper's Figure 5 view.
-- **Intervene**: pick a source and target (the A/B buttons fill them from a
-  cell's readout), choose clamped swap / swap / steer and a layer range, and
-  compare the clean vs edited next-token distribution and generation live.
+  cosine or raw readout, a *words-only* display mask with true-rank
+  superscripts, rich hover tooltips, arrow-key navigation, and an **OUT row**
+  showing the model's actual next-token prediction per position.
+- **Pin**: pin any number of words (colour-coded chips) to heat-map their
+  ranks on the grid and follow them in two **rank charts** — rank vs layer at
+  the selected position and rank vs position at the selected layer — the
+  paper's Figure 5 view, plus by-layer and by-position readout panels.
+- **Intervene** (not in the official visualiser): pick a source and target
+  (the A/B buttons fill them from any readout row), choose clamped swap /
+  swap / steer and a layer range, and compare the clean vs edited next-token
+  distribution and generation live.
 
 Over VS Code Remote-SSH the port is forwarded automatically. The GPU serves
 one request at a time; a full read takes a few seconds per prompt.
