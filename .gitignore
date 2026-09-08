@@ -32,3 +32,5 @@ jacobian-lens/
 # ---- OS / editor noise ------------------------------------------------------
 .DS_Store
 Thumbs.db
+# personal notes (may hold tokens)
+important.txt
