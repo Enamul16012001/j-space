@@ -162,6 +162,38 @@
       box-shadow:0 6px 24px #00000030}
   #tt .h{color:var(--accent);margin-bottom:4px;font-weight:700}
   #tt .pr{margin-top:2px;font-weight:600}
+
+  #scenarios{display:flex;gap:7px;flex-wrap:wrap;padding:2px 18px 10px}
+  .scen{display:inline-flex;gap:6px;align-items:center;cursor:pointer;
+        border:1px solid var(--line);border-radius:999px;padding:5px 13px;
+        font-size:12.5px;font-weight:600;background:var(--panel);
+        color:var(--muted);box-shadow:var(--shadow);white-space:nowrap;
+        transition:border-color .15s,color .15s;user-select:none}
+  .scen:hover{border-color:var(--accent);color:var(--accent)}
+  .scen.active{background:var(--accent-soft);border-color:var(--accent);
+        color:var(--accent)}
+  .scen .em{font-size:13px}
+
+  #dragbar{width:10px;flex-shrink:0;align-self:stretch;cursor:col-resize;
+        touch-action:none;border-radius:5px;
+        background:linear-gradient(var(--line),var(--line))
+                   center/2px 70% no-repeat}
+  #dragbar:hover,#dragbar:active{
+        background:linear-gradient(var(--accent),var(--accent))
+                   center/3px 70% no-repeat}
+
+  #sidetoggle{position:fixed;right:10px;top:50%;transform:translateY(-50%);
+        z-index:8;width:30px;height:44px;padding:0;border-radius:9px;
+        font-size:14px;line-height:1;box-shadow:var(--shadow)}
+
+  #side details.card summary{display:flex;align-items:center;gap:7px;
+        cursor:pointer;list-style:none;user-select:none}
+  #side details.card summary::-webkit-details-marker{display:none}
+  #side details.card summary::before{content:"▸";color:var(--muted);
+        font-size:10px;transition:transform .15s}
+  #side details.card[open] summary::before{transform:rotate(90deg)}
+  #side details.card summary h2{margin:0}
+  #side details.card[open] summary{margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -619,11 +651,14 @@ drag.addEventListener("pointerdown", e=>{ dragging = true;
   drag.setPointerCapture(e.pointerId); });
 drag.addEventListener("pointermove", e=>{
   if (!dragging) return;
-  const w = Math.min(640, Math.max(240, innerWidth - e.clientX - 12));
+  const w = Math.min(innerWidth * 0.6,
+    Math.max(240, innerWidth - e.clientX - 12));
   side.style.width = w + "px";
   try{ localStorage.setItem("jl-sidew", w); }catch(_){}
 });
 drag.addEventListener("pointerup", ()=> dragging = false);
+drag.addEventListener("dblclick", ()=>{ side.style.width = "352px";
+  try{ localStorage.removeItem("jl-sidew"); }catch(_){} });
 function toggleSide(init){
   const hide = init === true ? true : side.style.display !== "none";
   side.style.display = hide ? "none" : "flex";
