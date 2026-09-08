@@ -37,6 +37,15 @@
     padding:5px 8px;font:inherit}
   label.opt{color:var(--muted);font-size:12px;display:flex;gap:5px;
             align-items:center;white-space:nowrap}
+  #examples{display:flex;gap:6px;align-items:center;padding:5px 16px;
+             flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  #replybox{padding:6px 16px;border-bottom:1px solid var(--line);
+            font:13px ui-monospace,monospace}
+  #replybox span#replytext{background:var(--accent-soft);border-radius:8px;
+            padding:3px 8px;white-space:pre-wrap}
+  #adv{font-size:12px}
+  #adv summary{cursor:pointer;padding:6px 2px}
+  thead th.gen{color:var(--out)}
   #status{color:var(--muted);font-size:12px;padding:2px 16px;min-height:18px}
   #status.err{color:var(--warn)}
 
@@ -118,15 +127,38 @@
 </header>
 
 <div id="promptbar">
-  <textarea id="prompt">On which continent is the country famous for the pyramids of Giza? Reply with just the name.</textarea>
-  <label class="opt"><input type="checkbox" id="chat" checked> chat template</label>
-  <label class="opt"><input type="checkbox" id="wordsonly"> words only</label>
-  <label class="opt"><input type="checkbox" id="ws"> raw whitespace</label>
-  <label class="opt">readout
-    <select id="mode"><option value="cosine" selected>cosine</option>
-      <option value="raw">raw logits</option></select></label>
+  <textarea id="prompt" placeholder="Send a message and see what pops up in the model's workspace…">On which continent is the country famous for the pyramids of Giza? Reply with just the name.</textarea>
+  <label class="opt">
+    <select id="analyze">
+      <option value="reply" selected>message → model replies</option>
+      <option value="chat">chat prompt only</option>
+      <option value="raw">raw completion</option>
+    </select></label>
   <button id="readbtn" onclick="doRead()">Read</button>
+  <details id="adv"><summary class="hint">advanced</summary>
+    <div class="row"><label class="opt">readout
+      <select id="mode"><option value="cosine" selected>cosine</option>
+        <option value="raw">raw logits</option></select></label>
+      <label class="opt"><input type="checkbox" id="wordsonly"> words only</label>
+      <label class="opt"><input type="checkbox" id="ws"> raw whitespace</label></div>
+    <div class="row"><label class="opt">prefill assistant
+      <input type="text" id="prefill" size="18"
+        placeholder='e.g. "Certainly!"'></label>
+      <label class="opt">reply tokens <input type="number" id="maxnew"
+        value="48" style="width:58px"></label>
+      <button class="mini ghost" onclick="exportJSON()">export JSON</button></div>
+  </details>
 </div>
+<div id="examples">
+  <span class="hint">try:</span>
+  <button class="mini ghost" onclick="loadExample(0)">pyramids → continent</button>
+  <button class="mini ghost" onclick="loadExample(1)">spider legs</button>
+  <button class="mini ghost" onclick="loadExample(2)">Winograd trophy</button>
+  <button class="mini ghost" onclick="loadExample(3)">hidden language</button>
+  <button class="mini ghost" onclick="loadExample(4)">think of a sport</button>
+</div>
+<div id="replybox" hidden><span class="hint">model reply:</span>
+  <span id="replytext"></span></div>
 <div id="status"></div>
 <div id="tt"></div>
 
@@ -196,6 +228,34 @@
 
 <script>
 const PALETTE = ["#e7b400","#3f8cff","#e05555","#9a5fe0","#38b24d","#e07a2e"];
+const EXAMPLES = [
+ {p:"On which continent is the country famous for the pyramids of Giza? Reply with just the name.",
+  pins:["Egypt","Africa","Europe"], a:"reply"},
+ {p:"How many legs does the animal that spins webs have? Reply with just the number.",
+  pins:["spider","ant"], a:"reply"},
+ {p:"The trophy would not fit into the brown suitcase because it was far too large.",
+  pins:["trophy","suitcase"], a:"raw"},
+ {p:"La lluvia caía despacio sobre los tejados del pueblo y nadie salió a la calle.\n\nWhat language is this passage written in? Answer with one word.",
+  pins:["Spanish","French"], a:"reply"},
+ {p:"Think of a sport. Do not explain your reasoning. Reply with only its name.",
+  pins:[], a:"reply"},
+];
+async function loadExample(i){
+  const e = EXAMPLES[i];
+  $("prompt").value = e.p; $("analyze").value = e.a;
+  await doRead();
+  for (const w of e.pins){ $("pinword").value = w; await doPin(); }
+  if (S.pins.length) setActive(0);
+}
+function exportJSON(){
+  if (!S.data) return;
+  const blob = new Blob([JSON.stringify({data:S.data,
+    pins:S.pins.map(p=>({word:p.word, ranks:p.ranks}))}, null, 1)],
+    {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "jlens-snapshot.json";
+  a.click();
+}
 let S = {data:null, pins:[], active:-1, sel:null};
 const $ = id => document.getElementById(id);
 const status = (m,e)=>{ $("status").textContent=m; $("status").className=e?"err":""; };
@@ -229,7 +289,9 @@ function renderGrid(){
   S.max = Math.max(...d.grid.flat().map(c=>c.s));
   let h = "<thead><tr><th></th>";
   d.tokens.forEach((t,i)=> h +=
-    `<th onclick="selectCell(S.sel?S.sel[0]:${d.layers.length-1},${i})">${esc(vis(t))}</th>`);
+    `<th class="${d.asst_start!==null && i>=d.asst_start ? 'gen':''}"
+       title="${d.asst_start!==null && i>=d.asst_start ? 'assistant turn':'prompt'}"
+       onclick="selectCell(S.sel?S.sel[0]:${d.layers.length-1},${i})">${esc(vis(t))}</th>`);
   h += "</tr></thead><tbody>";
   d.layers.forEach((L,li)=>{
     h += `<tr><th class="${L>=band[0]&&L<=band[1]?'band':''}">L${L}</th>`;
@@ -276,16 +338,24 @@ function showTT(e, html){
 function ttHide(){ $("tt").style.display = "none"; }
 
 async function doRead(){
-  status("Reading… (one forward pass + a lens readout per layer)");
+  status($("analyze").value==="reply"
+    ? "Generating the reply, then reading its workspace…"
+    : "Reading… (one forward pass + a lens readout per layer)");
   $("readbtn").disabled = true;
   try{
-    S.data = await api("read",{prompt:$("prompt").value, chat:$("chat").checked,
+    const az = $("analyze").value;
+    S.data = await api("read",{prompt:$("prompt").value, chat:az!=="raw",
+      reply:az==="reply", prefill:$("prefill").value,
+      max_new:parseInt($("maxnew").value||"48"),
       cosine:$("mode").value==="cosine", words_only:$("wordsonly").checked});
     S.pins = []; S.active = -1; S.sel = null;
     $("modelinfo").textContent = S.data.model;
     $("lo").value = S.data.band[0]; $("hi").value = S.data.band[1];
+    $("replybox").hidden = !S.data.reply;
+    $("replytext").textContent = S.data.reply || "";
     renderGrid(); renderChips(); renderCharts();
-    status(`${S.data.tokens.length} tokens × ${S.data.layers.length} layers · band L${S.data.band[0]}–L${S.data.band[1]} · OUT row = model's real prediction`);
+    status(`${S.data.tokens.length} tokens × ${S.data.layers.length} layers · band L${S.data.band[0]}–L${S.data.band[1]} · OUT row = model's real prediction` +
+      (S.data.reply ? " · purple header columns = the model's own reply" : ""));
   }catch(e){ status(e.message,true); }
   $("readbtn").disabled = false;
 }

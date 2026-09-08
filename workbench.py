@@ -40,7 +40,8 @@ class Workbench:
         self.band = config.workspace_layers(self.model)
         self.layers = list(range(2, self.lens.target_layer + 1))
         self.lock = threading.Lock()        # one GPU, one request at a time
-        self.ids = None                     # last prompt's token ids
+        self.ids = None                     # full analysed sequence
+        self.gen_from = None                # in chat mode: ids generation starts from
         self.hs = None                      # hidden states
         self.out_logits = None              # model's real per-position logits
 
@@ -49,10 +50,27 @@ class Workbench:
                 else self.lens.logits(H, layer))
 
     # ---- reading -----------------------------------------------------------
-    def read(self, prompt, chat=False, cosine=True, words_only=False):
-        ids = (chat_ids(self.tok, prompt) if chat
-               else self.tok(prompt, return_tensors="pt", truncation=True,
-                             max_length=192).input_ids)
+    def read(self, prompt, chat=False, cosine=True, words_only=False,
+             reply=False, prefill="", max_new=48):
+        """Chat mode (`reply=True`): send the message, let the model answer,
+        then run the lens over the WHOLE exchange — so the grid shows the
+        workspace during the model's own reply."""
+        self.gen_from = None
+        reply_text, asst_start = "", None
+        if reply:
+            gen_from = chat_ids(self.tok, prompt, prefill=prefill)
+            reply_text = generate(self.model, self.tok, gen_from, (),
+                                  max_new_tokens=int(max_new))
+            asst_start = chat_ids(self.tok, prompt).shape[1]
+            tail = self.tok(reply_text, return_tensors="pt",
+                            add_special_tokens=False).input_ids
+            ids = torch.cat([gen_from, tail], dim=1)
+            self.gen_from = gen_from
+        elif chat:
+            ids = chat_ids(self.tok, prompt)
+        else:
+            ids = self.tok(prompt, return_tensors="pt", truncation=True,
+                           max_length=192).input_ids
         with torch.no_grad():
             out = self.model(ids.to(self.model.device),
                              output_hidden_states=True, use_cache=False)
@@ -84,7 +102,8 @@ class Workbench:
 
         return {"model": config.MODEL_NAME, "tokens": tokens,
                 "layers": self.layers, "band": [self.band[0], self.band[-1]],
-                "vocab": self.lens.vocab, "grid": grid, "outrow": outrow}
+                "vocab": self.lens.vocab, "grid": grid, "outrow": outrow,
+                "reply": reply_text, "asst_start": asst_start}
 
     def detail(self, layer, pos, cosine=True, k=15):
         S = self._readout(self.hs[layer][0, pos], layer, cosine)
@@ -149,13 +168,15 @@ class Workbench:
             label = (f"{kind} {self.tok.decode([src])!r} -> "
                      f"{self.tok.decode([tgt])!r}")
 
+        base = self.gen_from if self.gen_from is not None else self.ids
+
         def side(ed):
-            lg = next_token_logits(self.model, self.ids, ed)
+            lg = next_token_logits(self.model, base, ed)
             p = torch.softmax(lg, -1)
             vals, idx = p.topk(5)
             top = [{"tok": self.tok.decode([i]), "p": round(v, 4)}
                    for i, v in zip(idx.tolist(), vals.tolist())]
-            text = generate(self.model, self.tok, self.ids, ed,
+            text = generate(self.model, self.tok, base, ed,
                             max_new_tokens=int(max_new))
             return {"top": top, "gen": text}
 
@@ -196,7 +217,10 @@ def main():
                     if route == "read":
                         out = wb.read(req["prompt"], req.get("chat", False),
                                       req.get("cosine", True),
-                                      req.get("words_only", False))
+                                      req.get("words_only", False),
+                                      req.get("reply", False),
+                                      req.get("prefill", ""),
+                                      req.get("max_new", 48))
                     elif route in ("detail", "slice", "pin", "intervene"):
                         if wb.hs is None:
                             raise ValueError("read a prompt first")

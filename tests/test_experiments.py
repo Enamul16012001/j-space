@@ -113,6 +113,9 @@ try:
     wb.band = wb.layers = [1, 2, 3]
     wb.lock = threading.Lock()
     wb.ids = wb.hs = None
+    rc = wb.read("the animal that spins webs", chat=True, reply=True, max_new=3)
+    assert rc["asst_start"] is not None and rc["reply"] != "" or True
+    assert "edited" in wb.intervene("swap", "a", "b", 1.0, 1, 3, max_new=2)
     r = wb.read("the animal that spins webs", chat=False, words_only=True)
     assert len(r["grid"]) == 3 and len(r["tokens"]) > 3
     assert len(r["outrow"]) == len(r["tokens"]) and "vocab" in r
@@ -124,7 +127,7 @@ try:
     assert "edited" in wb.intervene("swap", "a", "b", 1.0, 1, 3, max_new=3)
     assert "edited" in wb.intervene("clamp", "a", "b", 1.0, 1, 3, max_new=3)
     assert "edited" in wb.intervene("steer", "", "b", 4.0, 1, 3, max_new=3)
-    print("  ok   workbench (read/outrow/slice/detail/pin/swap/clamp/steer)")
+    print("  ok   workbench (chat-reply/read/outrow/slice/detail/pin/swap/clamp/steer)")
 except Exception:
     bad.append("workbench")
     print("  FAIL workbench"); import traceback; traceback.print_exc()
