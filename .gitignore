@@ -15,6 +15,8 @@ jlens_*.pt
 *.pt.tmp
 # cached corpus samples
 .corpus-*.json
+# workbench "export JSON" snapshots
+jlens-snapshot*.json
 # run logs and experiment plots
 logs/
 *.log
