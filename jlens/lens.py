@@ -190,8 +190,11 @@ class JLens:
         self.path = str(path)
         self.J = {l: m.to(model.device).float() for l, m in data["J"].items()}
         self.W_U = model.get_output_embeddings().weight        # [vocab, d]
-        self.gamma = model.model.norm.weight.float()           # final RMSNorm gain
-        self.eps = model.model.norm.variance_epsilon
+        norm = model.model.norm
+        self.gamma = norm.weight.float()                       # final RMSNorm gain
+        if "gemma" in type(norm).__name__.lower():
+            self.gamma = self.gamma + 1    # Gemma RMSNorm scales by (1 + weight)
+        self.eps = getattr(norm, "variance_epsilon", getattr(norm, "eps", 1e-6))
         self.vocab = self.W_U.shape[0]
         self._norms = {}
 
