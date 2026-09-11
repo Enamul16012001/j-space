@@ -89,9 +89,7 @@ def main():
         ids = chat_ids(tok, prompt)
         top10 = next_token_logits(model, ids).topk(10).indices.tolist()
         src = top10[0]
-        # §3.1: the target must NOT be in the model's top-10 possible outputs.
-        # Match the target token's spacing to the source token (a leading-space
-        # variant of the same word is a different vocab entry).
+
         space = tok.decode([src]).startswith(" ")
         tgt = None
         for w in candidates:

@@ -13,9 +13,6 @@ _str = lambda k, d: os.environ.get(k, d).strip()
 _int = lambda k, d: int(_str(k, str(d)))
 _flag = lambda k, d: _str(k, str(d)).lower() in ("1", "true", "yes", "on")
 
-# Without Python dev headers, torch's Triton JIT dies compiling its C shim.
-# The flag is read at torch-import time, so this must run BEFORE `import
-# torch` — every entry point imports `config` first for this reason.
 if not os.path.exists(os.path.join(sysconfig.get_paths()["include"], "Python.h")):
     os.environ.setdefault("TORCH_DISABLE_NATIVE_JIT", "1")
 
@@ -47,10 +44,6 @@ if ALLOW_TF32:
 JLENS_PATH = _str("JLENS_PATH",
                   str(ROOT / f"jlens_{MODEL_NAME.split('/')[-1].lower()}.pt"))
 
-# Layer indexing everywhere in this repo:
-#     layer 0 = embedding output, layer i = output of transformer block i
-# WORKSPACE_LAYERS (e.g. "14-33") pins a calibrated band; otherwise the
-# §4.1 proportions in WORKSPACE_BAND are mapped onto the model's depth.
 WORKSPACE_BAND = tuple(float(x) for x in _str("WORKSPACE_BAND", "0.38,0.92").split(","))
 
 _band = _str("WORKSPACE_LAYERS", "auto")
