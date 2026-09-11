@@ -4,21 +4,10 @@ import os
 import pathlib
 import sysconfig
 
+from dotenv import load_dotenv
+
 ROOT = pathlib.Path(__file__).resolve().parent
-
-
-def _load_env(path=ROOT / ".env"):
-    """Minimal KEY=value reader (# comments, quotes optional)."""
-    if not path.exists():
-        return
-    for line in path.read_text().splitlines():
-        line = line.split("#", 1)[0].strip()
-        if "=" in line:
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
-
-
-_load_env()
+load_dotenv(ROOT / ".env")   # existing environment variables still win
 
 _str = lambda k, d: os.environ.get(k, d).strip()
 _int = lambda k, d: int(_str(k, str(d)))
