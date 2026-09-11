@@ -1,12 +1,6 @@
-"""Experiment 08 — ABLATE THE WHOLE J-SPACE (paper §3.5.2, Fig. 22).
-
-At every position in a band of layers, remove the span of the top-k=10 active
-J-lens vectors (excluding each position's own top-10 next-token predictions
-from the clean pass, so the model's immediate output machinery is spared).
-
-Prediction from the paper: multi-hop reasoning — which must pass intermediate
-results through the workspace — collapses, while routine next-token prediction
-on ordinary text barely degrades.
+"""Experiment 08 — ABLATE THE WHOLE J-SPACE (paper §3.5.2, Fig. 22): remove
+the top-k active lens vectors per position (sparing next-token predictions).
+Multi-hop reasoning collapses; ordinary next-token prediction barely moves.
 
     python experiments/08_jspace_ablation.py
 """

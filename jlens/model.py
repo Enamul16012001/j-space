@@ -10,12 +10,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 def load_model(dtype=None):
-    """Load the model in `dtype` (default: config.DTYPE).
-
-    Step 00 passes config.LENS_DTYPE (float32) because the Jacobian is an
-    average of gradients propagated through every layer; everything else runs
-    in bf16, where only the forward pass matters.
-    """
+    """Load the model in `dtype` (default config.DTYPE; step 00 passes
+    float32 because gradient averaging is precision-sensitive)."""
     tok = AutoTokenizer.from_pretrained(config.MODEL_NAME)
     model = AutoModelForCausalLM.from_pretrained(
         config.MODEL_NAME, dtype=dtype or config.DTYPE,
@@ -26,12 +22,8 @@ def load_model(dtype=None):
 
 
 def chat_ids(tok, user, prefill=""):
-    """Token ids for a chat prompt, with an optional assistant prefill.
-
-    Qwen3 has a "thinking" mode; we disable it (enable_thinking=False) because,
-    as in the paper, we study the model's *silent* computation, not its
-    chain-of-thought.
-    """
+    """Token ids for a chat prompt with optional assistant prefill.  Qwen3's
+    thinking mode is disabled: the paper studies silent computation."""
     messages = [{"role": "user", "content": user}]
     try:
         text = tok.apply_chat_template(messages, tokenize=False,
@@ -44,11 +36,8 @@ def chat_ids(tok, user, prefill=""):
 
 
 def single_token_id(tok, word):
-    """Vocabulary id of `word` as a single token (leading-space form preferred).
-
-    The J-lens can only name concepts that are single tokens (paper §9.1), so
-    experiment scripts check this up front.
-    """
+    """Vocabulary id of `word` as a single token, leading-space form
+    preferred (the lens only names single-token concepts, §9.1)."""
     for w in (" " + word, word):
         ids = tok.encode(w, add_special_tokens=False)
         if len(ids) == 1:

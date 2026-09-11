@@ -1,33 +1,13 @@
-"""Experiment 09 — WHERE is the workspace? Structural metrics per layer
-(paper §4.1, Fig. 27–28).
+"""Experiment 09 — WHERE is the workspace? (paper §4.1, Fig. 27–28).
 
-Four signatures, and what each one means (§4.1):
+Four per-layer signatures: top-5 accuracy (jumps at the workspace END),
+excess kurtosis (rises at onset; unreliable on small models — long-vector
+tails), persistence (content held across positions), effective dimension
+(lens vectors fan out at onset).  The band = high kurtosis/persistence/
+dimension while accuracy is still low.  Use the output to calibrate
+WORKSPACE_LAYERS for your checkpoint.
 
-  1. top-k accuracy — the J-lens's top-5 contains the model's next token.
-     Near zero through the early layers, ticks up at the workspace start, then
-     jumps STEEPLY in the last few layers.  The steep jump marks the END of the
-     workspace: there the lens reads "motor" output, not held content.
-  2. excess kurtosis — the readout is sharply peaked on a few tokens.  Near
-     zero for the first third, rises at the workspace ONSET, falls at the end.
-     Caveat: computed on raw lens logits per the paper; on a small model a few
-     rare tokens with 2-3x-length lens vectors fatten the tails at EVERY
-     layer, which can wash out or invert this signature.  Trust persistence,
-     effective dimension and the accuracy take-off over kurtosis here.
-  3. persistence — the top-1 lens token repeats at the next position, as a
-     Δ log probability over a position-shuffled null.  Near null early, rises
-     at the onset, peaks across the band, falls back at the end.  This is
-     content being *held* rather than recomputed per token.
-  4. effective dimension — the fraction of residual dimensions needed for 90%
-     of the variance across the J-lens vectors W_U J_l.  SMALL in the early
-     layers (the lens collapses to a small subspace) and rising sharply at the
-     onset, as the lens vectors fan out to span the residual stream.
-
-So the workspace band is where kurtosis, persistence and effective dimension
-are all high while top-5 accuracy is still low.
-
-The band is derived from the model's depth by default (config.WORKSPACE_BAND,
-the paper's 38–92%).  Use this script's output to calibrate it for your own
-checkpoint, then pin it by setting config.WORKSPACE_LAYERS to an explicit list.
+Writes workspace_layers.png.
 Writes workspace_layers.png.
 
     python experiments/09_workspace_layers.py

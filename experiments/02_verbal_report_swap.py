@@ -1,10 +1,6 @@
 """Experiment 02 — SWAP a silently-held thought and change the verbal report
-(paper §3.1, Fig. 5–6).
-
-We ask the model to "think of a {category}" and answer with only its name.
-The J-lens reads the choice off the residual stream *before* it is spoken;
-swapping that lens coordinate for another word's makes the model report the
-other word.
+(paper §3.1, Fig. 5–6): the lens reads the "think of a {category}" choice
+before it is spoken; swapping that coordinate changes the report.
 
     python experiments/02_verbal_report_swap.py
     python experiments/02_verbal_report_swap.py --category "citrus fruit" \\

@@ -1,20 +1,9 @@
 """Experiment 07 — SELECTIVITY of workspace edits (paper §3.5.1, Fig. 20).
 
-Swapping the "Spanish" lens coordinate for "French" ACROSS THE QUESTION TOKENS
-(the paper's protocol — the passage itself is left untouched) flips tasks that
-*consult the verbalized language variable*:
-
-  explicit report     "What language is this?"          Spanish -> French
-  flexible inference  "Say 'hello' in that language."   Hola    -> Bonjour
-
-but does NOT move the automatic tasks, even though they depend on the very
-same variable:
-
-  continuation        still continues in Spanish
-  anomaly detection   still spots the French sentence spliced into the passage
-
-Low-level language machinery runs outside the workspace; only report and
-flexible inference route through it.
+Swapping Spanish→French on the question tokens flips tasks that consult the
+verbalized language variable (report, "say hello in that language") but not
+the automatic ones (continuation, anomaly detection): low-level language
+machinery runs outside the workspace.
 
     python experiments/07_selectivity.py
 """

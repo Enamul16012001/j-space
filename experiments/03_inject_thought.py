@@ -1,10 +1,6 @@
-"""Experiment 03 — INJECT a thought and ask the model what it notices
-(paper §3.1, Fig. 7 "injected thoughts" introspection protocol).
-
-We steer with a concept's J-lens vector on the *user-turn* positions only,
-then ask the model whether a thought was injected.  At the right strength the
-model reports the injected concept; too weak and it detects nothing, too
-strong and outputs degrade — sweep --alphas.
+"""Experiment 03 — INJECT a thought and ask what the model notices
+(paper §3.1, Fig. 7): steer with a concept's lens vector on the user-turn
+positions, then ask whether a thought was injected.  Sweep --alphas.
 
     python experiments/03_inject_thought.py
     python experiments/03_inject_thought.py --concept aquarium --alphas 8,16,32

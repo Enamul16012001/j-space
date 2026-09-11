@@ -1,11 +1,5 @@
-"""Experiment 11 — BROADCAST: MLPs amplify J-lens directions (~10×) far more
-than random directions (paper §4.3.1, Fig. 32).
-
-For each layer we feed unit vectors straight through that layer's MLP path
-(post-attention layernorm → MLP) and compare output norms for:
-  • unit J-lens vectors of random vocab tokens   (workspace content)
-  • random unit directions                        (baseline)
-  • unit MLP-neuron output directions of the previous layer (specialist noise)
+"""Experiment 11 — BROADCAST (paper §4.3.1, Fig. 32): each layer's MLP path
+amplifies unit J-lens vectors far more than random or MLP-neuron directions.
 
 Writes broadcast_gain.png.
 

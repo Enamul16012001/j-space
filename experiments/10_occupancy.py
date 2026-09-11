@@ -1,19 +1,8 @@
-"""Experiment 10 — the J-SPACE REPRESENTATION of an activation, and workspace
-OCCUPANCY / capacity (paper §4.2, Fig. 30).
+"""Experiment 10 — J-space decomposition and OCCUPANCY (paper §4.2, Fig. 30).
 
-Part 1: sparse-decompose one activation into nonnegative combinations of
-J-lens vectors — the human-readable "what is in the workspace right now"
-representation (tokens + coefficients).
-
-Part 2, Fig. 30's two panels:
-  (a) occupancy by layer — the K at which the marginal reconstruction gain of
-      K J-lens atoms first drops below a same-size random dictionary's;
-      plotted as median with an interquartile band over text positions.  The
-      paper finds ~0 through the first third of layers, plateauing around 25
-      across the workspace band (expect lower on a 4B model).
-  (b) variance explained in excess of the random control, evaluated at
-      K = the layer's median occupancy, for the workspace probe layers —
-      the paper's "never more than 10%".
+Part 1 sparse-decomposes one activation into J-lens atoms ("what is in the
+workspace right now"); part 2 plots occupancy by layer (K where J-lens atoms
+stop beating a same-size random dictionary) and excess variance explained.
 
 Writes occupancy.png.
 

@@ -1,10 +1,6 @@
-"""Experiment 06 — ONE swap, MANY functions: flexible generalization
-(paper §3.4, Fig. 18).
-
-The same France→China lens swap, defined once with no reference to any task,
-redirects *different* downstream computations — capital, language, continent,
-currency — exactly as a global-workspace account predicts: many specialist
-consumers all read the same broadcast variable.
+"""Experiment 06 — ONE swap, MANY functions (paper §3.4, Fig. 18): a single
+France→China swap redirects capital, language, continent and currency alike —
+many specialist consumers read the same broadcast variable.
 
     python experiments/06_flexible_generalization.py
     python experiments/06_flexible_generalization.py --alpha 2

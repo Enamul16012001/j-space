@@ -1,14 +1,8 @@
-"""The J-space (paper §2.3): the set of activations expressible as sparse
-nonnegative combinations of J-lens vectors.
-
-Contents of an activation are identified by *sparse decomposition* using
-gradient pursuit (Blumensath & Davies, 2008) with a nonnegativity clamp, as in
-the paper (§2.5 "sparse decomposition", §4.2 occupancy analysis, k ≈ 25).
-
-Dictionary atoms are the unit-normalized J-lens vectors of every vocabulary
-token.  Correlations with the residual are computed as (γ⊙W_U)(J r) / ‖atom‖,
-so the full [vocab × d] dictionary never has to be materialized.
-"""
+"""The J-space (paper §2.3): activations expressible as sparse nonnegative
+combinations of J-lens vectors, identified by gradient pursuit (Blumensath &
+Davies 2008) with a nonnegativity clamp (§2.5, §4.2).  Atom correlations are
+computed as (γ⊙W_U)(J r) / ‖atom‖ so the [vocab × d] dictionary is never
+materialized."""
 import torch
 
 CHUNK = 16384
@@ -16,15 +10,10 @@ CHUNK = 16384
 
 @torch.no_grad()
 def sparse_decompose(lens, h, layer, k=25, return_curve=False):
-    """Nonnegative gradient pursuit over the J-lens dictionary.
-
-    Each step: (1) select the atom with the largest positive correlation with
-    the residual; (2) take one gradient step on ½‖h − Vc‖² over the support,
-    with exact line search; (3) clamp coefficients to be nonnegative.
-
-    Returns (token_ids, coeffs, residual) — and the per-step squared-residual
-    curve too if return_curve=True.  h ≈ Σᵢ coeffs[i] · v̂_{tokenᵢ} + residual.
-    """
+    """Nonnegative gradient pursuit: pick the most-correlated atom, take one
+    line-searched gradient step on ½‖h − Vc‖² over the support, clamp c ≥ 0.
+    Returns (token_ids, coeffs, residual), plus the per-step squared-residual
+    curve if return_curve=True."""
     h = h.float().to(lens.model.device)
     r = h.clone()
     norms = lens.atom_norms(layer).clamp_min(1e-8)
@@ -72,13 +61,8 @@ def jspace_split(lens, vec, layer, k=16):
 # ---------------------------------------------------------------------------
 
 class RandomDict:
-    """A fixed dictionary of random unit directions.
-
-    The paper's occupancy control uses a random dictionary of the *same size*
-    as the vocabulary; that is the default here (~750 MB in fp16 on GPU).
-    Lower n_atoms if you are short on memory (a smaller control makes the
-    occupancy estimate slightly conservative in the other direction).
-    """
+    """Fixed dictionary of random unit directions — the §4.2 occupancy
+    control, vocabulary-sized by default (~750 MB fp16 on GPU)."""
 
     def __init__(self, n_atoms, d, device, seed=0):
         g = torch.Generator().manual_seed(seed)

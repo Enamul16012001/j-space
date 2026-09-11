@@ -1,10 +1,6 @@
-"""Experiment 05 — SWAP an INTERMEDIATE step of a multi-hop computation and
-watch the answer change consistently (paper §3.3, Fig. 12–14).
-
-"The number of legs on the animal that spins webs is" → the model internally
-resolves *spider*, then answers 8.  Swapping the spider lens coordinate for
-*ant* mid-stream makes the same prompt answer 6: downstream computation
-consumes the edited workspace content.
+"""Experiment 05 — SWAP an INTERMEDIATE step of a multi-hop computation
+(paper §3.3, Fig. 12–14): webs → *spider* → 8 becomes 6 when the spider
+coordinate is clamp-swapped to ant mid-stream.
 
     python experiments/05_intermediate_swap.py
 """

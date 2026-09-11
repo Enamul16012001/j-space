@@ -1,15 +1,8 @@
-"""Experiment 04 — the model HOLDS A THOUGHT in mind on request, and the
-J-lens reads it out (paper §3.2, Fig. 9-10 "directed modulation").
+"""Experiment 04 — HOLD A THOUGHT in mind (paper §3.2, Fig. 9-10).
 
-The model is told to copy a fixed sentence verbatim while (a) concentrating on
-citrus fruits, (b) silently computing 3^2 - 2, or (c) nothing (baseline).
-The visible output is identical in all three cases — we teacher-force the copy
-— but the lens readout over the copied tokens shows the requested content.
-
-Following Fig. 10's metric, each probe word is scored by its best lens rank
-over ALL (workspace layer, copy position) cells, not a single hand-picked
-token.  Expected: citrus words rank far higher under the citrus instruction,
-number words under the math instruction, and neither at baseline.
+The model copies a fixed sentence (teacher-forced, so output is identical)
+while silently thinking of citrus / computing 3^2-2 / nothing; probe words
+are scored by best lens rank over all (workspace layer, copy position) cells.
 
     python experiments/04_hold_in_mind.py
 """

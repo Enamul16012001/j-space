@@ -1,34 +1,12 @@
 """The Jacobian lens (paper §2.1, §2.4, §2.5; pseudocode in §A.7).
 
-For every layer ℓ we estimate the corpus-averaged Jacobian
+    J_ℓ = E_{prompt, t} [ Σ_{t' ≥ t}  ∂ z_t' / ∂ h_ℓ,t ]     (z: target-layer
+                                                              residual stream)
+    reading:  lens(h_ℓ) = softmax( W_U · norm( J_ℓ h_ℓ ) )
+    vectors:  vec_v(ℓ)  = J_ℓᵀ (γ ⊙ W_U[v])
 
-    J_ℓ = E_{prompt, t} [ Σ_{t' ≥ t}  ∂ z_t' / ∂ h_ℓ,t ]
-
-where z is the residual stream at the target layer — by default the
-*penultimate* one, the paper's default recipe ("omitting the last transformer
-block from the backward pass").
-
-Σ vs E over t':  §2.1 writes the aggregation over target positions as an
-expectation, but the §A.7 pseudocode seeds a one-hot gradient at *every* target
-position and averages only over source positions t — i.e. a sum over t'.  We
-follow the pseudocode.  (The two differ: a sum weights early source positions
-more, since they have more future positions to affect.)
-
-Reading (Fig. 4B):
-
-    lens(h_ℓ) = softmax( W_U · norm( J_ℓ h_ℓ ) )
-
-The J-lens *vector* of vocabulary token v at layer ℓ — a direction in layer-ℓ
-residual space whose inner product with h gives token v's lens logit — is
-
-    vec_v(ℓ) = J_ℓᵀ (γ ⊙ W_U[v])
-
-where γ is the final RMSNorm gain.  §2.1 defines these vectors as the rows of
-W_U J_ℓ; we fold γ in because the model's own readout is
-logits = W_U (γ ⊙ z) / rms(z), so only with γ included is ⟨vec_v, h⟩ exactly
-proportional to token v's lens logit — the property §2.5 relies on when it uses
-the same vectors as probes and as intervention directions.  The leftover
-1 / rms(z) is a positive scalar and never changes rankings.
+γ (the final RMSNorm gain) is folded into the vectors so that ⟨vec_v, h⟩ is
+exactly proportional to token v's lens logit, as §2.5's probe form requires.
 """
 import hashlib
 import os
@@ -58,34 +36,23 @@ def compute_jlens(model, tok, texts, layers=None, target=config.TARGET,
                   skip_first=config.SKIP_FIRST, seq_len=config.SEQ_LEN,
                   save_path=None, save_every=config.SAVE_EVERY,
                   resume=config.RESUME):
-    """Estimate J_ℓ for every requested layer; returns a dict ready to torch.save.
-
-    Implementation of the §A.7 pseudocode.  Trick used for efficiency: the
-    forward pass runs on B identical copies of the prompt, so one backward pass
-    (with a different one-hot output dimension per copy) yields B rows of every
-    J_ℓ at once.
-
-    With `save_path`, the running average is checkpointed atomically every
-    `save_every` prompts.  A checkpoint is a complete, usable lens — just
-    averaged over fewer prompts — so a run that dies at prompt 900 of 1000
-    still leaves you a lens.  With `resume`, a checkpoint from the SAME model,
-    target and corpus (verified by fingerprint) is picked up where it left
-    off; a mismatched checkpoint raises instead of being silently mixed in.
+    """Estimate J_ℓ for every requested layer (§A.7 pseudocode); returns a
+    dict ready to torch.save.  The prompt is repeated B times so one backward
+    (a different one-hot output dim per copy) yields B rows of every J_ℓ.
+    Checkpoints are complete usable lenses; resume refuses a checkpoint from
+    a different model/target/corpus instead of silently mixing it in.
     """
     d = model.config.hidden_size
     L = model.config.num_hidden_layers
     tgt = L - 1 if target == "penultimate" else L
     if layers is None:
         layers = list(range(tgt + 1))
-    # hidden_states[i] is the residual at layer i only for i <= L-1: transformers
-    # replaces the last entry with the *normalized* final residual.  So source
-    # layers stop at L-1, and a "final" target is read from a hook on the final
-    # norm, whose input is the raw final residual.
+    # hidden_states[-1] is post-norm in transformers, so source layers stop at
+    # L-1; a "final" target is read via a pre-hook on the final norm instead.
     layers = [l for l in layers if l <= min(tgt, L - 1)]
 
-    # Drop prompts too short to average over (< 32 tokens) BEFORE the
-    # fingerprint/resume logic: list position must always equal prompts done,
-    # or an interrupted run would resume against the wrong texts.
+    # Filter short prompts BEFORE fingerprinting: list position must always
+    # equal prompts done, or a resumed run would continue on the wrong texts.
     texts = [t for t in texts
              if tok(t, return_tensors="pt", truncation=True,
                     max_length=seq_len).input_ids.shape[1] >= max(32, skip_first + 2)]
@@ -98,10 +65,8 @@ def compute_jlens(model, tok, texts, layers=None, target=config.TARGET,
     J = {l: torch.zeros(d, d) for l in layers}  # float32 accumulators on CPU
     n_used = 0
 
-    # Resume: a checkpoint stores the *average*, so multiply back out to get the
-    # running sum and skip the prompts already folded in (the corpus is cached
-    # on disk, so `texts` is the same list in the same order across runs — and
-    # the fingerprint check makes that assumption safe rather than hopeful).
+    # A checkpoint stores the *average*: multiply back out to the running sum
+    # and skip the prompts already folded in.
     if resume and save_path and os.path.exists(save_path):
         ck = torch.load(save_path, map_location="cpu", weights_only=True)
         compatible = (ck["model"] == config.MODEL_NAME and ck["target"] == target
@@ -138,16 +103,13 @@ def compute_jlens(model, tok, texts, layers=None, target=config.TARGET,
             B = rows_per_backward
             batch = ids.repeat(B, 1).to(model.device)
             with torch.enable_grad():
-                # run the bare decoder: the LM head's [B, T, vocab] logits are
-                # never needed here (the official reference does the same)
+                # bare decoder: the LM head's logits are never needed here
                 out = model.model(batch, output_hidden_states=True, use_cache=False)
-                hs = out.hidden_states      # hs[0]=embeddings, hs[i]=block-i output
+                hs = out.hidden_states
                 z = hs[tgt] if tgt < L else raw_final["z"]
-                # One-hot cotangent in dim i at every VALID target position:
-                # positions [skip_first, T-1), matching the official reference
-                # (anthropics/jacobian-lens): the first positions are attention
-                # sinks with atypical statistics, and the final position has no
-                # next-token target.  The source mean uses the same window.
+                # valid positions [skip_first, T-1): early tokens are attention
+                # sinks, the last has no target; the source mean uses the same
+                # window (matches anthropics/jacobian-lens)
                 s = z[:, skip_first:-1].sum(dim=1)          # [B, d]
                 sources = [hs[l] for l in layers]
                 for start in range(0, d, B):
@@ -231,13 +193,8 @@ class JLens:
         return self._dict_scores(Z) / rms
 
     def cosine(self, H, layer):
-        """Length-normalised readout: cos(vec_v, h) for every vocabulary token.
-
-        §2.5 offers this alongside the raw score as the probe form.  It matters
-        in practice because a handful of rare tokens have J-lens vectors 2-3x
-        longer than the median, so they top the raw ranking on magnitude rather
-        than on direction and crowd out the real content.
-        """
+        """cos(vec_v, h) for every vocab token (§2.5).  Suppresses rare tokens
+        whose 2-3x-longer vectors would top the raw ranking on magnitude."""
         H = H.float().to(self.model.device)
         norms = self.atom_norms(layer).clamp_min(1e-8)
         return self.scores(H, layer) / norms / H.norm(dim=-1, keepdim=True)

@@ -1,18 +1,14 @@
 """Causal interventions in J-lens coordinates (paper §2.5).
 
-    Steer            h <- h + α·v̂                       ("add a concept")
-    ProjectOut       h <- h − proj_span(V) h             ("remove a concept")
-    Swap             swap two lens coordinates (Fig. 4C) ("replace a concept")
+    Steer            h <- h + α·v̂
+    ProjectOut       h <- h − proj_span(V) h
+    Swap / ClampSwap swap two lens coordinates (Fig. 4C / Fig. 13)
     TopKJSpaceAblate remove the top-k active lens vectors per position (§3.5.2)
 
-Edits are installed with the `apply_edits` context manager, which hooks the
-transformer blocks.  Residual-stream index convention (see config.py):
-layer i = output of block i, so an edit at layer i hooks model.model.layers[i-1].
-
-Positions are *absolute* token positions in the full sequence (prompt +
-generated).  A small hook on the embedding layer keeps track of which absolute
-positions each forward pass covers, so edits keep working during generation
-with a KV cache (where each step only sees one new token).
+Positions are absolute token positions in the full sequence; an embedding
+hook tracks which positions each forward covers, so edits keep working
+during KV-cached generation.  An edit at layer i hooks model.model.layers[i-1]
+(layer i = output of block i, see config.py).
 """
 import contextlib
 
@@ -72,14 +68,9 @@ class ProjectOut(Edit):
 
 
 class Swap(Edit):
-    """Swap the coefficients of two lens vectors, in lens coordinates (Fig. 4C).
-
-    With V = [v_source, v_target] and c = V⁺ h the (least-squares) coordinates
-    of h on the two atoms, we move h by α · (σ(c) − c) expressed back in
-    residual space, where σ swaps the two entries.  At α = 1 the source
-    coordinate becomes the target coordinate and vice versa; everything
-    orthogonal to the two vectors is untouched.
-    """
+    """Swap the coordinates of h on [v_source, v_target] (Fig. 4C):
+    h <- h + α·(σ(c) − c)·Vᵀ with c = V⁺h and σ exchanging the two entries.
+    Everything orthogonal to the two vectors is untouched."""
 
     def __init__(self, v_source, v_target, alpha, layers, positions="all"):
         super().__init__(layers, positions)
@@ -96,14 +87,9 @@ class Swap(Edit):
 
 
 class ClampSwap(Edit):
-    """Clamped lens-coordinate swap (§3.3, Fig. 13; also Fig. 8's re-entry
-    control): at every (layer, position) the activation's coordinates on
-    [v_source, v_target] are SET to the swapped clean-pass values, instead of
-    exchanged in place.  Pinning them keeps downstream layers from writing the
-    original concept back into the stream.
-
-    Build with `clamp_swap_edits`, which computes the clean coordinates.
-    """
+    """Clamped swap (§3.3, Fig. 13): SET the coordinates on [v_source,
+    v_target] to the swapped clean-pass values, so downstream layers cannot
+    write the original concept back.  Build with `clamp_swap_edits`."""
 
     def __init__(self, V, c_swapped, layers, positions):
         super().__init__(layers, positions)
@@ -119,15 +105,10 @@ class ClampSwap(Edit):
 
 
 class TopKJSpaceAblate(Edit):
-    """Whole-J-space ablation (§3.5.2): at every position, find the k lens
-    vectors with the largest positive correlation with the activation and
-    project out their span.
-
-    `exclude_per_pos` maps an absolute position to token ids that must NOT be
-    ablated there — the paper excludes each position's top-10 next-token
-    predictions from the clean forward pass, so that the ablation removes
-    *workspace content* rather than the model's immediate output.
-    """
+    """Whole-J-space ablation (§3.5.2): project out the span of the k most
+    activation-correlated lens vectors per position.  `exclude_per_pos` spares
+    each position's top next-token predictions, so the ablation removes
+    workspace content rather than the model's immediate output."""
 
     def __init__(self, lens, k, layers, positions="all", exclude_per_pos=None):
         super().__init__(layers, positions)

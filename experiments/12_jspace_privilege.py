@@ -1,22 +1,10 @@
 """Experiment 12 — is the J-SPACE PRIVILEGED for verbal report?
 (paper §3.1, Fig. 8.)
 
-Swapping J-lens vectors changes what the model reports — but that alone does
-not show the *J-space* is special: some direction outside it might encode the
-same concept just as causally.  The paper's control:
-
-  1. Build a concept vector for a word: the residual stream just before the
-     Assistant answers "Tell me about {word}", mean-subtracted over a baseline
-     set of other concepts.
-  2. Split it (gradient pursuit, k = 16) into a J-space component and a
-     non-J-space remainder.  The J-space part holds only ~6–7% of the vector's
-     variance.
-  3. Re-run the "think of a {category}" swap using each part in place of the
-     J-lens vectors, every perturbation rescaled to the same magnitude.
-
-The paper finds the swap target reaches the model's top-5 on 88% of trials with
-pure J-lens vectors, 59% with the J-space component, and 5% with the
-non-J-space remainder — i.e. the thin J-space slice carries the causal effect.
+Split a concept vector into its J-space component (~6-7% of variance) and
+non-J-space remainder, then re-run the report swap with each part at equal
+magnitude.  The paper: the thin J-space slice carries the causal effect
+(88% / 59% / 5% top-5 rates for lens vectors / component / remainder).
 
     python experiments/12_jspace_privilege.py
 """

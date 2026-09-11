@@ -1,23 +1,9 @@
-"""A pretraining-like text corpus for averaging the Jacobians (paper §2.1).
-
-The sample mixes two public sources and two length buckets, so the average
-sees many registers and many context lengths:
-
-    50%  allenai/c4 "en"   — raw web text: blogs, news, forums, shops
-    50%  WikiText-103      — clean encyclopedia prose
-    within each source: ~25% short passages (160–500 chars) and ~75% long
-    ones (500+ chars; the lens computation truncates at SEQ_LEN tokens)
-
-Both streams are shuffled (WikiText streams consecutive paragraphs of one
-article — unshuffled, 32 rows cover about two topics).  The finished sample
-is cached on disk: reruns are instant, and — critically — the resume logic in
-compute_jlens is guaranteed to see the identical list in the identical order.
-
-The fetch runs in a subprocess because `datasets`' streaming reader aborts
-the interpreter during shutdown (aiohttp threads at finalization, exit code
-134), which would otherwise take the caller down after the work was done.
-If downloads fail entirely, a small built-in fallback keeps the code runnable.
-"""
+"""Pretraining-like corpus for averaging the Jacobians (paper §2.1):
+50% C4 web text + 50% WikiText-103, ~25% short / 75% long passages, both
+streams shuffled.  Cached on disk so resume always sees the identical list.
+The fetch runs in a subprocess because `datasets`' streaming reader can
+abort the interpreter at shutdown (exit 134); a built-in fallback keeps the
+code runnable offline."""
 import json
 import os
 import subprocess
