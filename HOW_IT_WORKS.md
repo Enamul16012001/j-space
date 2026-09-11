@@ -432,6 +432,58 @@ notepad simultaneously** — token 1 gets its row-sum, token 2 gets its
 row-sum, and so on. One walk, all positions, all futures. That is why
 computing the lens is merely *expensive* and not *impossible*.
 
+### 6.5b The backward walk frame by frame — where the adding happens
+
+Section 6.5 said the one-walk trick "delivers the row-sum". Here is the
+mechanism, slowed down. Three tokens, layer 20, needle slot i. We backprop
+the single number sᵢ = z₁ᵢ + z₂ᵢ + z₃ᵢ:
+
+```
+start:    a sensitivity of 1 flows into z₁ᵢ, z₂ᵢ and z₃ᵢ (each has
+          derivative exactly 1 with respect to their sum)
+
+from z₃ᵢ: the walk descends layers 35→21; through the attention edges it
+          reaches notepads 1, 2 AND 3 at layer 20 (forward-time z₃ read all
+          three), depositing  ∂z₃ᵢ/∂h₁   ∂z₃ᵢ/∂h₂   ∂z₃ᵢ/∂h₃
+
+from z₂ᵢ: can only reach notepads 1 and 2 — the forward pass never built a
+          path from notepad 3 to z₂, so backward has no road there.
+          Deposits  ∂z₂ᵢ/∂h₁   ∂z₂ᵢ/∂h₂        (nothing at notepad 3)
+
+from z₁ᵢ: deposits only  ∂z₁ᵢ/∂h₁
+```
+
+Now the single mechanical fact that makes the trick work: **when several
+backward paths land on the same tensor, autograd ADDS their deposits**
+(the accumulation `+=` from 6.2b). So the finished gradient g = [3, 2560]
+reads:
+
+```
+g[1] = ∂z₁ᵢ/∂h₁ + ∂z₂ᵢ/∂h₁ + ∂z₃ᵢ/∂h₁    = row i of J₍₂₀,₁₎
+g[2] =            ∂z₂ᵢ/∂h₂ + ∂z₃ᵢ/∂h₂    = row i of J₍₂₀,₂₎
+g[3] =                       ∂z₃ᵢ/∂h₃    = row i of J₍₂₀,₃₎
+```
+
+Each position's "self + future" sum was assembled by the walk itself; the
+"past" terms were never in the graph, so nothing had to be masked out. And
+because the same walk passes through every layer, it deposits such a g on
+H₁₉, H₁₈, ... too — row i of ALL 36 layers from one backward.
+
+**Where did the position axis go?** Note that g[1], g[2], g[3] are rows of
+*different* matrices — the true sensitivity is per (layer, position). The
+code then takes the mean over positions (and later over prompts), so the
+file on disk stores ONE matrix per layer: the average of all the J₍ₗ,t₎.
+Reading a new prompt multiplies every position's notepad by this same
+averaged matrix — nothing position-specific is recomputed. Why is that
+allowed? Same argument as Part 7: each individual J₍ₗ,t₎ is full of one-off
+detail (this prompt's attention pattern, this position's quirks), but
+averaged over thousands of (prompt, position) samples the one-off parts
+cancel, and what survives is the model's shared encoding convention —
+average thousands of handwriting samples and you are left with the font.
+That one averaged linear map still translates well is the paper's central
+empirical finding, and it is what experiment 01 checks every time the right
+word crystallizes in the grid.
+
 ### 6.6 The same story, in exact tensor shapes
 
 Let's drop all analogies and track the real arrays. Example prompt with
