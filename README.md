@@ -113,10 +113,15 @@ python workbench.py            # open http://localhost:7860
 A browser UI over the lens (this repo's own code; stdlib server, vanilla JS,
 no extra dependencies):
 
-- **Read**: the layer × position grid of top lens tokens for any prompt,
-  cosine or raw readout, a *words-only* display mask with true-rank
-  superscripts, rich hover tooltips, arrow-key navigation, and an **OUT row**
-  showing the model's actual next-token prediction per position.
+- **Chat**: type a message, the model replies, and the grid shows the
+  workspace across the *whole exchange* — including the reply tokens.
+  **Scenario tabs** preload one ready-to-run demo per paper phenomenon
+  (verbal report, directed modulation, multi-hop, broadcast, selective
+  mediation), each with its pins and intervention pre-filled.
+- **Read**: the layer × position grid of top lens tokens, cosine or raw
+  readout, a *words-only* display mask with true-rank superscripts, rich
+  hover tooltips, arrow-key navigation, and an **OUT row** showing the
+  model's actual next-token prediction per position.
 - **Pin**: pin any number of words (colour-coded chips) to heat-map their
   ranks on the grid and follow them in two **rank charts** — rank vs layer at
   the selected position and rank vs position at the selected layer — the
@@ -174,22 +179,30 @@ Not supported: the **MoE** checkpoints (Qwen3-30B-A3B, 235B-A22B). The lens
 itself would be fine, but experiment 11 assumes each block has a single dense
 `block.mlp`.
 
+## Other model families
+
+Nothing here is Qwen-specific: any HF decoder with the Llama-style layout
+(`model.layers`, `model.norm`, `lm_head` — Llama, Mistral, Gemma, OLMo-2,
+Phi-3, …) works by setting `MODEL_NAME`. Verified end to end:
+
+- **google/gemma-3-1b-it** — works, including a lens-readout fix for Gemma's
+  `x·(1+weight)` RMSNorm convention (gated repo: accept the license on the
+  Hub and log in with `hf auth login` first).
+- **allenai/OLMo-2-0425-1B** — works as-is (base model: use raw prompts,
+  not `--chat`).
+
+Old GPT-style models (GPT-2, Pythia) are **not** supported — different
+attribute layout and LayerNorm instead of RMSNorm.
+
 ## Troubleshooting
 
 **`fatal error: Python.h: No such file or directory`** during the first forward
-pass. Recent torch routes some ops (e.g. RoPE's batched matmul) through Triton,
-which JIT-compiles a small C shim and therefore needs the Python development
-headers. Either install them:
-
-```bash
-sudo apt-get install -y python3.12-dev     # or python3-dev
-```
-
-or skip the Triton path entirely, at some cost in speed:
-
-```bash
-TORCH_DISABLE_NATIVE_JIT=1 python experiments/00_compute_jlens.py
-```
+pass. Recent torch routes some ops through Triton, which JIT-compiles a small
+C shim and therefore needs the Python development headers. `config.py`
+detects missing headers and sets `TORCH_DISABLE_NATIVE_JIT=1` automatically,
+so you should never see this when running through the repo's entry points;
+if you import `torch` directly in your own script, import `config` first, or
+install the headers (`sudo apt-get install python3-dev`).
 
 **`HfUriError: Repository id must be 'namespace/name', got 'wikitext'`** means
 an old `jlens/corpus.py`; the dataset id must be `Salesforce/wikitext` for
