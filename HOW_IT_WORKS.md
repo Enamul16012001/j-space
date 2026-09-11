@@ -631,6 +631,32 @@ Run the machinery in reverse and you can compute, for any word, the exact
 *direction* in notepad-space that makes the lens read that word. Think of it
 as each of the 151,936 words having a street address inside layer 20.
 
+### Two ways to score a word: raw vs cosine
+
+Once every word is an arrow (its J-lens vector v̂) and the notepad h is an
+arrow too, "which word does the notepad say?" can be scored two ways:
+
+```
+ raw score   ⟨v̂, h⟩            = ‖v̂‖ · ‖h‖ · cos(angle)   (dot product)
+ cosine      ⟨v̂, h⟩ / ‖v̂‖‖h‖  =              cos(angle)   (direction only)
+```
+
+The raw score is what the model's own unembedding computes — but notice it
+rewards a word for having a LONG arrow just as much as for pointing the
+right way. And a handful of rare tokens (`____`, the non-breaking space...)
+happen to have arrows 2–3× longer than the median. In raw rankings they
+shout their way to the top of many cells while pointing nowhere in
+particular — that is why early readouts can look full of `____` junk.
+Cosine divides both lengths out, keeping only the angle: the junk sinks,
+and the same cells read `Egypt` or `spider`. The direction was right all
+along; it was being outvoted by loud arrows.
+
+In the code (`jlens/lens.py`): `logits` is the raw form, `cosine` the
+normalised one, `readout(..., cosine=True)` switches between them. The
+workbench defaults to cosine (best for a human scanning tokens); experiment
+01 offers `--cosine` as a flag (raw is the more literally-what-the-model-
+computes number, so it stays the default there and in `rank`).
+
 ### Edit a thought (experiments 02, 05, 06, 07)
 
 Once "France" has an address, you can edit the notepad like a sticky note:
